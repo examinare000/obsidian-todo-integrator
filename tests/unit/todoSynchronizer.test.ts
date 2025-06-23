@@ -128,7 +128,8 @@ describe('TodoSynchronizer', () => {
 			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
 				'Daily Notes/2024-01-15.md',
 				'New Microsoft Task',
-				'msft-1'
+				'msft-1',
+				undefined
 			);
 		});
 

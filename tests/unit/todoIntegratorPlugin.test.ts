@@ -8,6 +8,17 @@ import { TodoApiClient } from '../../src/api/TodoApiClient';
 // Mock dependencies
 jest.mock('../../src/authentication/MSALAuthenticationManager');
 jest.mock('../../src/api/TodoApiClient');
+jest.mock('../../src/settings/PluginSettings');
+jest.mock('../../src/utils/DailyNotesDetector', () => ({
+	DailyNotesDetector: jest.fn().mockImplementation(() => ({
+		detectDailyNotesDefaults: jest.fn().mockResolvedValue({
+			dateFormat: 'YYYY-MM-DD',
+			folder: 'Daily Notes',
+			template: undefined,
+		}),
+		isDailyNotesPluginAvailable: jest.fn().mockReturnValue(false),
+	})),
+}));
 
 describe('TodoIntegratorPlugin', () => {
 	let plugin: TodoIntegratorPlugin;
@@ -57,6 +68,8 @@ describe('TodoIntegratorPlugin', () => {
 	describe('settings management', () => {
 		it('should load default settings', async () => {
 			plugin.loadData = jest.fn().mockResolvedValue(null);
+			// Disable pluginSettings to use direct loadData()
+			plugin.pluginSettings = null as any;
 			
 			await plugin.loadSettings();
 
@@ -74,6 +87,8 @@ describe('TodoIntegratorPlugin', () => {
 				todoListName: 'Custom List',
 			};
 			plugin.loadData = jest.fn().mockResolvedValue(savedSettings);
+			// Disable pluginSettings to use direct loadData()
+			plugin.pluginSettings = null as any;
 
 			await plugin.loadSettings();
 
@@ -121,6 +136,11 @@ describe('TodoIntegratorPlugin', () => {
 		});
 
 		it('should initiate authentication flow', async () => {
+			// Initialize settings first
+			plugin.loadData = jest.fn().mockResolvedValue({});
+			plugin.pluginSettings = null as any;
+			await plugin.loadSettings();
+
 			const mockAuthManager = plugin.authManager as jest.Mocked<MSALAuthenticationManager>;
 			mockAuthManager.initialize.mockResolvedValue(undefined);
 			mockAuthManager.authenticate.mockResolvedValue({
@@ -150,6 +170,11 @@ describe('TodoIntegratorPlugin', () => {
 		});
 
 		it('should handle authentication errors', async () => {
+			// Initialize settings first
+			plugin.loadData = jest.fn().mockResolvedValue({});
+			plugin.pluginSettings = null as any;
+			await plugin.loadSettings();
+
 			const mockAuthManager = plugin.authManager as jest.Mocked<MSALAuthenticationManager>;
 			mockAuthManager.initialize.mockRejectedValue(new Error('Auth failed'));
 

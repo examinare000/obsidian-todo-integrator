@@ -3,6 +3,18 @@
 import { App } from 'obsidian';
 import { TodoIntegratorPlugin } from '../../src/TodoIntegratorPlugin';
 
+// Mock DailyNotesDetector to prevent it from overriding test settings
+jest.mock('../../src/utils/DailyNotesDetector', () => ({
+	DailyNotesDetector: jest.fn().mockImplementation(() => ({
+		detectDailyNotesDefaults: jest.fn().mockResolvedValue({
+			dateFormat: 'YYYY-MM-DD',
+			folder: 'Daily Notes',
+			template: undefined,
+		}),
+		isDailyNotesPluginAvailable: jest.fn().mockReturnValue(false),
+	})),
+}));
+
 describe('Full Integration Tests - Basic', () => {
 	let plugin: TodoIntegratorPlugin;
 	let mockApp: App;
@@ -86,6 +98,8 @@ describe('Full Integration Tests - Basic', () => {
 		
 		plugin.loadData = jest.fn().mockResolvedValue(testSettings);
 		plugin.saveData = jest.fn().mockResolvedValue(undefined);
+		// Disable pluginSettings to use direct loadData()
+		plugin.pluginSettings = null as any;
 		
 		await plugin.loadSettings();
 		

@@ -179,7 +179,10 @@ export class TodoIntegratorPlugin extends Plugin {
 			}
 
 			// Apply Daily Notes plugin defaults if user hasn't manually set values
-			await this.applyDailyNotesDefaults();
+			// Skip in test environment or if app is not fully initialized
+			if (this.app && !process.env.NODE_ENV?.includes('test')) {
+				await this.applyDailyNotesDefaults();
+			}
 
 			this.logger?.debug('Settings loaded successfully', { settings: this.settings });
 		} catch (error) {
@@ -205,7 +208,7 @@ export class TodoIntegratorPlugin extends Plugin {
 	private async applyDailyNotesDefaults(): Promise<void> {
 		// Skip if Daily Notes detector is not available yet
 		if (!this.dailyNotesDetector) {
-			this.logger.debug('DailyNotesDetector not available, skipping defaults application');
+			this.logger?.debug('DailyNotesDetector not available, skipping defaults application');
 			return;
 		}
 
@@ -229,10 +232,11 @@ export class TodoIntegratorPlugin extends Plugin {
 
 			// Apply Daily Notes path if user hasn't set it manually
 			if (!this.settings._userSetDailyNotesPath) {
-				if (this.settings.dailyNotesPath !== dailyNotesDefaults.folder) {
+				// Only apply if the current path is still the default value
+				if (this.settings.dailyNotesPath === 'Daily Notes' && this.settings.dailyNotesPath !== dailyNotesDefaults.folder) {
 					this.settings.dailyNotesPath = dailyNotesDefaults.folder;
 					settingsChanged = true;
-					this.logger.info('Inherited Daily Notes folder from plugin', {
+					this.logger?.info('Inherited Daily Notes folder from plugin', {
 						folder: dailyNotesDefaults.folder
 					});
 				}
@@ -240,10 +244,11 @@ export class TodoIntegratorPlugin extends Plugin {
 
 			// Apply Daily Notes date format if user hasn't set it manually
 			if (!this.settings._userSetDailyNoteDateFormat) {
-				if (this.settings.dailyNoteDateFormat !== dailyNotesDefaults.dateFormat) {
+				// Only apply if the current format is still the default value
+				if (this.settings.dailyNoteDateFormat === 'YYYY-MM-DD' && this.settings.dailyNoteDateFormat !== dailyNotesDefaults.dateFormat) {
 					this.settings.dailyNoteDateFormat = dailyNotesDefaults.dateFormat;
 					settingsChanged = true;
-					this.logger.info('Inherited Daily Notes date format from plugin', {
+					this.logger?.info('Inherited Daily Notes date format from plugin', {
 						dateFormat: dailyNotesDefaults.dateFormat
 					});
 				}
@@ -251,10 +256,11 @@ export class TodoIntegratorPlugin extends Plugin {
 
 			// Apply Daily Notes template if user hasn't set it manually
 			if (!this.settings._userSetDailyNoteTemplate && dailyNotesDefaults.template) {
-				if (this.settings.dailyNoteTemplate !== dailyNotesDefaults.template) {
+				// Only apply if no template is currently set
+				if (!this.settings.dailyNoteTemplate) {
 					this.settings.dailyNoteTemplate = dailyNotesDefaults.template;
 					settingsChanged = true;
-					this.logger.info('Inherited Daily Notes template from plugin', {
+					this.logger?.info('Inherited Daily Notes template from plugin', {
 						template: dailyNotesDefaults.template
 					});
 				}
@@ -265,14 +271,14 @@ export class TodoIntegratorPlugin extends Plugin {
 				await this.saveSettings();
 			}
 
-			this.logger.debug('Daily Notes defaults application completed', {
+			this.logger?.debug('Daily Notes defaults application completed', {
 				userSetPath: this.settings._userSetDailyNotesPath,
 				userSetFormat: this.settings._userSetDailyNoteDateFormat,
 				userSetTemplate: this.settings._userSetDailyNoteTemplate
 			});
 
 		} catch (error) {
-			this.logger.error('Failed to apply Daily Notes defaults', { error });
+			this.logger?.error('Failed to apply Daily Notes defaults', { error });
 		}
 	}
 
