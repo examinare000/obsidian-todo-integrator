@@ -89,10 +89,10 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 		warningEl.style.borderRadius = '4px';
 		warningEl.style.padding = '10px';
 		warningEl.style.marginBottom = '10px';
-		warningEl.createEl('strong', { text: '⚠️ セキュリティに関する重要な注意事項' });
+		warningEl.createEl('strong', { text: '⚠️ セキュリティに関する注意事項' });
 		warningEl.createEl('br');
 		warningEl.createEl('span', { 
-			text: '最高のセキュリティを確保するため、独自のAzure App Registrationの作成を強く推奨します。Advanced Configurationを有効にして独自のClient IDとTenant IDを設定してください。'
+			text: 'ご自身でAzure App Registrationを作成することで、連携アプリの認証を自己管理することが可能です。セキュリティ上の理由から権限許可を最小限に抑えたい場合は、独自のClient IDとTenant IDを設定してください。'
 		});
 
 		const advancedContainer = containerEl.createEl('div', { cls: 'setting-item-description' });
