@@ -98,7 +98,7 @@ export class TodoSynchronizer {
 					
 					await this.dailyNoteManager.addTaskToTodoSection(
 						targetNotePath,
-						task.title,
+						this.cleanTaskTitle(task.title),
 						task.id,
 						this.taskSectionHeading
 					);
@@ -152,7 +152,7 @@ export class TodoSynchronizer {
 			// Get existing Microsoft tasks to check for duplicates
 			const existingMsftTasks = await this.apiClient.getTasks();
 			const existingTitles = new Set(
-				existingMsftTasks.map(task => this.normalizeTitle(task.title))
+				existingMsftTasks.map(task => this.normalizeTitle(this.cleanTaskTitle(task.title)))
 			);
 
 			// Create each new task in Microsoft Todo with start date
@@ -337,7 +337,7 @@ export class TodoSynchronizer {
 
 		return msftTasks.filter(task => 
 			!existingTaskIds.has(task.id) && 
-			!existingTitles.has(this.normalizeTitle(task.title))
+			!existingTitles.has(this.normalizeTitle(this.cleanTaskTitle(task.title)))
 		);
 	}
 
@@ -427,5 +427,10 @@ export class TodoSynchronizer {
 
 	private normalizeTitle(title: string): string {
 		return title.trim().toLowerCase().replace(/\s+/g, ' ');
+	}
+
+	private cleanTaskTitle(title: string): string {
+		// Remove [todo::ID] pattern from the title
+		return title.replace(/\s*\[todo::[^\]]+\]\s*/g, '').trim();
 	}
 }
