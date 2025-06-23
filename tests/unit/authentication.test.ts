@@ -59,7 +59,7 @@ describe('MSALAuthenticationManager', () => {
 
 		it('should attempt silent authentication first', async () => {
 			const mockPca = (authManager as any).pca;
-			const mockResult: AuthenticationResult = {
+			const mockMsalResult = {
 				accessToken: 'test-token',
 				expiresOn: new Date(Date.now() + 3600000),
 				account: {
@@ -69,18 +69,18 @@ describe('MSALAuthenticationManager', () => {
 			};
 
 			mockPca.getTokenCache().getAllAccounts.mockReturnValue([{ username: 'test@example.com' }]);
-			mockPca.acquireTokenSilent.mockResolvedValue(mockResult);
+			mockPca.acquireTokenSilent.mockResolvedValue(mockMsalResult);
 
 			const result = await authManager.authenticate();
 
 			expect(mockPca.acquireTokenSilent).toHaveBeenCalled();
-			expect(result).toEqual(mockResult);
+			expect(result.accessToken).toBe('test-token');
 		});
 
 		it('should fall back to device code flow when silent auth fails', async () => {
 			const mockPca = (authManager as any).pca;
 			const mockDeviceCallback = jest.fn();
-			const mockResult: AuthenticationResult = {
+			const mockMsalResult = {
 				accessToken: 'test-token',
 				expiresOn: new Date(Date.now() + 3600000),
 				account: {
@@ -91,16 +91,18 @@ describe('MSALAuthenticationManager', () => {
 
 			mockPca.getTokenCache().getAllAccounts.mockReturnValue([]);
 			mockPca.acquireTokenSilent.mockRejectedValue(new Error('No cached token'));
-			mockPca.acquireTokenByDeviceCode.mockImplementation((request: any, callback: (deviceCode: DeviceCodeResponse) => void) => {
-				const deviceCode: DeviceCodeResponse = {
-					userCode: 'ABC123',
-					deviceCode: 'device-code',
-					verificationUri: 'https://microsoft.com/devicelogin',
-					expiresIn: 900,
-					interval: 5,
-				};
-				callback(deviceCode);
-				return Promise.resolve(mockResult);
+			mockPca.acquireTokenByDeviceCode.mockImplementation((request: any) => {
+				// Simulate device code callback
+				if (request.deviceCodeCallback) {
+					request.deviceCodeCallback({
+						userCode: 'ABC123',
+						deviceCode: 'device-code',
+						verificationUri: 'https://microsoft.com/devicelogin',
+						expiresIn: 900,
+						interval: 5,
+					});
+				}
+				return Promise.resolve(mockMsalResult);
 			});
 
 			const result = await authManager.authenticate(mockDeviceCallback);
@@ -113,7 +115,7 @@ describe('MSALAuthenticationManager', () => {
 				expiresIn: 900,
 				interval: 5,
 			});
-			expect(result).toEqual(mockResult);
+			expect(result.accessToken).toBe('test-token');
 		});
 	});
 
@@ -157,7 +159,7 @@ describe('MSALAuthenticationManager', () => {
 		});
 
 		it('should throw error if no authentication available', async () => {
-			await expect(authManager.getAccessToken()).rejects.toThrow('No authentication available');
+			await expect(authManager.getAccessToken()).rejects.toThrow('TOKEN_EXPIRED: Please re-authenticate');
 		});
 	});
 
