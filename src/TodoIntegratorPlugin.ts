@@ -6,6 +6,8 @@ import { MSALAuthenticationManager } from './authentication/MSALAuthenticationMa
 import { TodoApiClient } from './api/TodoApiClient';
 import { AuthenticationModal } from './ui/AuthenticationModal';
 import { TodoIntegratorSettingsTab } from './ui/TodoIntegratorSettingsTab';
+import { DailyNoteManager } from './sync/DailyNoteManager';
+import { TodoSynchronizer } from './sync/TodoSynchronizer';
 import {
 	TodoIntegratorSettings,
 	AuthenticationResult,
@@ -22,6 +24,8 @@ export class TodoIntegratorPlugin extends Plugin {
 	settings: TodoIntegratorSettings;
 	authManager: MSALAuthenticationManager;
 	apiClient: TodoApiClient;
+	dailyNoteManager: DailyNoteManager;
+	synchronizer: TodoSynchronizer;
 	logger: Logger;
 	private syncInterval: number | null = null;
 	private currentAuthModal: AuthenticationModal | null = null;
@@ -84,6 +88,8 @@ export class TodoIntegratorPlugin extends Plugin {
 	private initializeComponents(): void {
 		this.authManager = new MSALAuthenticationManager(this.logger);
 		this.apiClient = new TodoApiClient(this.logger);
+		this.dailyNoteManager = new DailyNoteManager(this.app, this.logger, this.settings.dailyNotesPath);
+		this.synchronizer = new TodoSynchronizer(this.apiClient, this.dailyNoteManager, this.logger);
 	}
 
 	private addCommands(): void {
@@ -268,16 +274,18 @@ export class TodoIntegratorPlugin extends Plugin {
 	}
 
 	async performSync(): Promise<SyncResult> {
-		// This is a placeholder for the actual sync logic
-		// Will be implemented in Phase 6 (sync-system)
-		this.logger.debug('Performing sync operation (placeholder)');
+		this.logger.info('Performing synchronization');
 		
-		return {
-			msftToObsidian: { added: 0, errors: [] },
-			obsidianToMsft: { added: 0, errors: [] },
-			completions: { completed: 0, errors: [] },
-			timestamp: new Date().toISOString(),
-		};
+		try {
+			// Update daily note manager path if settings changed
+			this.dailyNoteManager.setDailyNotesPath(this.settings.dailyNotesPath);
+			
+			// Perform full synchronization
+			return await this.synchronizer.performFullSync();
+		} catch (error) {
+			this.logger.error('Synchronization failed', { error });
+			throw error;
+		}
 	}
 
 	private async toggleAutoSync(): Promise<void> {
