@@ -194,6 +194,9 @@ Some notes here.`;
 				completed: false,
 				lineNumber: 3,
 				todoId: 'task-123',
+				completionDate: undefined,
+				startDate: undefined,
+				filePath: 'test.md',
 			});
 
 			expect(tasks[1]).toEqual({
@@ -202,6 +205,8 @@ Some notes here.`;
 				lineNumber: 4,
 				todoId: 'task-456',
 				completionDate: '2024-01-15',
+				startDate: undefined,
+				filePath: 'test.md',
 			});
 
 			expect(tasks[2]).toEqual({
@@ -209,6 +214,9 @@ Some notes here.`;
 				completed: false,
 				lineNumber: 5,
 				todoId: undefined,
+				completionDate: undefined,
+				startDate: undefined,
+				filePath: 'test.md',
 			});
 		});
 
