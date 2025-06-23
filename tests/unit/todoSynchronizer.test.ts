@@ -200,6 +200,9 @@ describe('TodoSynchronizer', () => {
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
 			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
 			mockApiClient.createTaskWithStartDate.mockResolvedValue(createdTask);
+			
+			// Mock updateTaskWithTodoId method
+			jest.spyOn(synchronizer as any, 'updateTaskWithTodoId').mockResolvedValue(undefined);
 
 			const result = await synchronizer.syncObsidianToMsft();
 
