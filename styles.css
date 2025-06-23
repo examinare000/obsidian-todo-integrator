@@ -1,8 +1,226 @@
-/*
+/* ToDo Integrator Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Sidebar Button Component */
+.todo-integrator-sidebar-button {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  margin: 8px 0;
+}
 
-If your plugin does not need CSS, delete this file.
+.todo-integrator-sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
 
-*/
+.todo-integrator-sync-btn:hover {
+  background: var(--interactive-accent-hover);
+  transform: translateY(-1px);
+}
+
+.todo-integrator-sync-btn.disabled {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.todo-integrator-sync-btn.syncing {
+  background: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.todo-integrator-sync-btn.success {
+  background: var(--color-green);
+}
+
+.todo-integrator-sync-btn.error {
+  background: var(--color-red);
+}
+
+.todo-integrator-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.todo-integrator-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.todo-integrator-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.todo-integrator-status-text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.todo-integrator-status-text.idle {
+  color: var(--text-muted);
+}
+
+.todo-integrator-status-text.syncing {
+  color: var(--color-yellow);
+}
+
+.todo-integrator-status-text.success {
+  color: var(--color-green);
+}
+
+.todo-integrator-status-text.error {
+  color: var(--color-red);
+}
+
+.todo-integrator-next-sync {
+  margin-top: 4px;
+}
+
+.todo-integrator-next-sync-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Authentication Modal Styles */
+.todo-integrator-device-code {
+  padding: 16px 0;
+}
+
+.todo-integrator-url-container,
+.todo-integrator-code-container {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.todo-integrator-code {
+  font-family: var(--font-monospace);
+  background: var(--background-primary-alt);
+  padding: 4px 8px;
+  border-radius: 3px;
+  margin: 0 8px;
+  font-weight: 600;
+}
+
+.todo-integrator-device-code-text {
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--interactive-accent);
+}
+
+.todo-integrator-steps {
+  margin: 16px 0;
+  padding-left: 20px;
+}
+
+.todo-integrator-steps li {
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.todo-integrator-progress {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  border-left: 4px solid var(--interactive-accent);
+}
+
+.todo-integrator-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.todo-integrator-timer {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.todo-integrator-success {
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  border-left: 4px solid var(--color-green);
+}
+
+.todo-integrator-error {
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  border-left: 4px solid var(--color-red);
+}
+
+.todo-integrator-user-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--background-primary-alt);
+  border-radius: 4px;
+}
+
+.todo-integrator-button-container {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Settings Tab Styles */
+.todo-integrator-status {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.todo-integrator-status p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .todo-integrator-sidebar-button {
+    padding: 8px;
+  }
+  
+  .todo-integrator-sync-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  .todo-integrator-device-code-text {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+}
