@@ -9,6 +9,7 @@ export interface TodoIntegratorSettings {
 	syncIntervalMinutes: number;
 	logLevel: 'debug' | 'info' | 'error';
 	lastSyncTime?: string;
+	advancedConfigEnabled: boolean;
 }
 
 export interface AuthenticationResult {
