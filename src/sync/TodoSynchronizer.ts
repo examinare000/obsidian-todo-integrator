@@ -149,8 +149,21 @@ export class TodoSynchronizer {
 				throw new Error('No default Microsoft Todo list configured');
 			}
 
+			// Get existing Microsoft tasks to check for duplicates
+			const existingMsftTasks = await this.apiClient.getTasks();
+			const existingTitles = new Set(
+				existingMsftTasks.map(task => this.normalizeTitle(task.title))
+			);
+
 			// Create each new task in Microsoft Todo with start date
 			for (const task of newObsidianTasks) {
+				// Skip if task already exists in Microsoft Todo (by normalized title)
+				if (existingTitles.has(this.normalizeTitle(task.title))) {
+					this.logger.debug('Skipping task - already exists in Microsoft Todo', {
+						taskTitle: task.title
+					});
+					continue;
+				}
 				try {
 					const createdTask = await this.apiClient.createTaskWithStartDate(
 						listId, 
