@@ -4,6 +4,7 @@ import { App, PluginSettingTab, Setting, Modal, TextComponent } from 'obsidian';
 import { TodoIntegratorPlugin } from '../TodoIntegratorPlugin';
 import { UI_TEXT } from '../constants';
 import { PathValidator, ValidationResult } from '../utils/pathValidation';
+import { InputSanitizer } from '../utils/inputSanitizer';
 
 export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	plugin: TodoIntegratorPlugin;
@@ -40,12 +41,6 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	private renderAuthenticationSection(containerEl: HTMLElement): void {
 		containerEl.createEl('h3', { text: UI_TEXT.SETTINGS.AUTH_SECTION });
 
-		// Information about the plugin using developer's multi-tenant client
-		const infoEl = containerEl.createEl('div', { cls: 'setting-item-description' });
-		infoEl.createEl('p', { 
-			text: 'このプラグインは開発者が提供するマルチテナントAzureクライアントアプリケーションを使用してMicrosoft To Doにアクセスします。認証情報はローカルに保存され、外部には送信されません。'
-		});
-
 		// Advanced Configuration toggle
 		new Setting(containerEl)
 			.setName('Advanced Configuration')
@@ -60,6 +55,12 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 		// Show advanced settings only if enabled
 		if (this.plugin.settings.advancedConfigEnabled) {
 			this.renderAdvancedClientSettings(containerEl);
+		} else {
+			// Information about the plugin using developer's multi-tenant client
+			const infoEl = containerEl.createEl('div', { cls: 'setting-item-description' });
+			infoEl.createEl('p', { 
+				text: 'このプラグインは開発者が提供するマルチテナントAzureクライアントアプリケーションを使用してMicrosoft To Doにアクセスします。認証情報はローカルに保存され、外部には送信されません。'
+			});
 		}
 
 		// Authentication status and actions
@@ -81,6 +82,19 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	}
 
 	private renderAdvancedClientSettings(containerEl: HTMLElement): void {
+		// Security warning about using default client
+		const warningEl = containerEl.createEl('div', { cls: 'setting-item-description' });
+		warningEl.style.backgroundColor = '#fff3cd';
+		warningEl.style.border = '1px solid #ffeaa7';
+		warningEl.style.borderRadius = '4px';
+		warningEl.style.padding = '10px';
+		warningEl.style.marginBottom = '10px';
+		warningEl.createEl('strong', { text: '⚠️ セキュリティに関する重要な注意事項' });
+		warningEl.createEl('br');
+		warningEl.createEl('span', { 
+			text: '最高のセキュリティを確保するため、独自のAzure App Registrationの作成を強く推奨します。Advanced Configurationを有効にして独自のClient IDとTenant IDを設定してください。'
+		});
+
 		const advancedContainer = containerEl.createEl('div', { cls: 'setting-item-description' });
 		
 		advancedContainer.createEl('h4', { text: 'Azure App Registration設定' });
