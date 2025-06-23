@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
 	advancedConfigEnabled: false,
 	dailyNoteDateFormat: 'YYYY-MM-DD',
 	dailyNoteTemplate: undefined,
+	taskSectionHeading: '# Tasks',
 };
 
 export const MSAL_CONFIG = {

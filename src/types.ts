@@ -12,6 +12,11 @@ export interface TodoIntegratorSettings {
 	advancedConfigEnabled: boolean;
 	dailyNoteDateFormat: string;
 	dailyNoteTemplate?: string;
+	taskSectionHeading: string;
+	// Inheritance flags to track if user has manually set these values
+	_userSetDailyNotesPath?: boolean;
+	_userSetDailyNoteDateFormat?: boolean;
+	_userSetDailyNoteTemplate?: boolean;
 }
 
 export interface AuthenticationResult {
