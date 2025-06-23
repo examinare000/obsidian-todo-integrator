@@ -41,7 +41,10 @@ export class MSALAuthenticationManager {
 				authority: `https://login.microsoftonline.com/${tenantId}`,
 				knownAuthorities: ['login.microsoftonline.com'],
 			},
-			cache: MSAL_CONFIG.cache,
+			cache: {
+				cacheLocation: 'sessionStorage',
+				storeAuthStateInCookie: false,
+			},
 			system: {
 				loggerOptions: {
 					loggerCallback: (level, message, containsPii) => {
@@ -116,7 +119,7 @@ export class MSALAuthenticationManager {
 		if (!this.pca) return null;
 
 		try {
-			const accounts = this.pca.getTokenCache().getAllAccounts();
+			const accounts = await this.pca.getTokenCache().getAllAccounts();
 			if (accounts.length === 0) {
 				this.logger.debug('No cached accounts found');
 				return null;
@@ -165,6 +168,9 @@ export class MSALAuthenticationManager {
 		};
 
 		const result = await this.pca.acquireTokenByDeviceCode(deviceCodeRequest);
+		if (!result) {
+			throw new Error('Device code authentication failed - no result returned');
+		}
 		return this.processAuthResult(result);
 	}
 
@@ -234,7 +240,7 @@ export class MSALAuthenticationManager {
 
 		if (this.pca) {
 			try {
-				const accounts = this.pca.getTokenCache().getAllAccounts();
+				const accounts = await this.pca.getTokenCache().getAllAccounts();
 				for (const account of accounts) {
 					await this.pca.getTokenCache().removeAccount(account);
 				}

@@ -9,6 +9,9 @@ import { TodoIntegratorSettingsTab } from './ui/TodoIntegratorSettingsTab';
 import { SidebarButton } from './ui/SidebarButton';
 import { DailyNoteManager } from './sync/DailyNoteManager';
 import { TodoSynchronizer } from './sync/TodoSynchronizer';
+import { ErrorHandler } from './utils/ErrorHandler';
+import { PluginSettings } from './settings/PluginSettings';
+import { ObsidianTodoParser } from './parser/ObsidianTodoParser';
 import {
 	TodoIntegratorSettings,
 	AuthenticationResult,
@@ -29,6 +32,9 @@ export class TodoIntegratorPlugin extends Plugin {
 	synchronizer: TodoSynchronizer;
 	sidebarButton: SidebarButton;
 	logger: Logger;
+	errorHandler: ErrorHandler;
+	pluginSettings: PluginSettings;
+	todoParser: ObsidianTodoParser;
 	private syncInterval: number | null = null;
 	private currentAuthModal: AuthenticationModal | null = null;
 
@@ -36,6 +42,17 @@ export class TodoIntegratorPlugin extends Plugin {
 		// Initialize logger
 		this.logger = new SimpleLogger();
 		this.logger.info('ToDo Integrator plugin loading...');
+
+		// Initialize error handler
+		this.errorHandler = new ErrorHandler(this.logger);
+
+		// Initialize plugin settings manager
+		this.pluginSettings = new PluginSettings(
+			this.logger,
+			this.errorHandler,
+			() => this.loadData(),
+			(data) => this.saveData(data)
+		);
 
 		// Load settings
 		await this.loadSettings();
@@ -101,6 +118,7 @@ export class TodoIntegratorPlugin extends Plugin {
 	private initializeComponents(): void {
 		this.authManager = new MSALAuthenticationManager(this.logger);
 		this.apiClient = new TodoApiClient(this.logger);
+		this.todoParser = new ObsidianTodoParser(this.app, this.logger, this.errorHandler);
 		this.dailyNoteManager = new DailyNoteManager(this.app, this.logger, this.settings.dailyNotesPath);
 		this.synchronizer = new TodoSynchronizer(this.apiClient, this.dailyNoteManager, this.logger);
 	}
@@ -130,8 +148,7 @@ export class TodoIntegratorPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		try {
-			const loadedSettings = await this.loadData();
-			this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
+			this.settings = await this.pluginSettings.loadSettings();
 			this.logger?.debug('Settings loaded successfully', { settings: this.settings });
 		} catch (error) {
 			this.logger?.error('Failed to load settings', { error });
@@ -141,7 +158,7 @@ export class TodoIntegratorPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		try {
-			await this.saveData(this.settings);
+			await this.pluginSettings.saveSettings(this.settings);
 			this.logger.debug('Settings saved successfully');
 		} catch (error) {
 			this.logger.error('Failed to save settings', { error });

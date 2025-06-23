@@ -88,7 +88,7 @@ export interface SyncResult {
 }
 
 export interface TaskPair {
-	obsidianTask: ObsidianTask;
+	obsidianTask: DailyNoteTask;
 	msftTask: TodoTask;
 	confidence: number;
 }
