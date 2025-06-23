@@ -13,6 +13,9 @@ describe('Full Integration Tests - Basic', () => {
 			id: 'todo-integrator',
 			name: 'ToDo Integrator',
 			version: '0.1.4',
+			author: 'Test Author',
+			minAppVersion: '0.15.0',
+			description: 'Test plugin'
 		});
 	});
 

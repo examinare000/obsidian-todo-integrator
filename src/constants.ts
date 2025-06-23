@@ -1,12 +1,15 @@
 // Constants for ToDo Integrator Plugin
+import { getAzureConfig, PLUGIN_CONFIG } from './config/AppConfig';
+
+const azureConfig = getAzureConfig();
 
 export const DEFAULT_SETTINGS = {
-	clientId: '',
-	tenantId: 'common',
-	todoListName: 'Obsidian Tasks',
-	dailyNotesPath: 'Daily Notes',
+	clientId: azureConfig.CLIENT_ID,
+	tenantId: azureConfig.TENANT_ID,
+	todoListName: PLUGIN_CONFIG.DEFAULT_TODO_LIST_NAME,
+	dailyNotesPath: PLUGIN_CONFIG.DEFAULT_DAILY_NOTES_PATH,
 	autoSyncEnabled: false,
-	syncIntervalMinutes: 15,
+	syncIntervalMinutes: PLUGIN_CONFIG.DEFAULT_SYNC_INTERVAL_MINUTES,
 	logLevel: 'info' as const,
 };
 
