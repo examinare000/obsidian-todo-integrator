@@ -68,6 +68,8 @@ describe('MSALAuthenticationManager', () => {
 				},
 			};
 
+			// Setup cached account
+			(authManager as any).currentAccount = { username: 'test@example.com' };
 			mockPca.getTokenCache().getAllAccounts.mockReturnValue([{ username: 'test@example.com' }]);
 			mockPca.acquireTokenSilent.mockResolvedValue(mockMsalResult);
 
@@ -144,6 +146,7 @@ describe('MSALAuthenticationManager', () => {
 
 			(authManager as any).cachedToken = expiredToken;
 			(authManager as any).tokenExpiry = expiredExpiry;
+			(authManager as any).currentAccount = { username: 'test@example.com' };
 
 			mockPca.getTokenCache().getAllAccounts.mockReturnValue([{ username: 'test@example.com' }]);
 			mockPca.acquireTokenSilent.mockResolvedValue({
