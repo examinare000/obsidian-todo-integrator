@@ -57,11 +57,17 @@ describe('Full Integration Tests', () => {
 		expect(plugin.saveData).toHaveBeenCalled();
 	});
 
-	test('should initialize logger correctly', () => {
+	test('should initialize logger correctly', async () => {
+		plugin.loadData = jest.fn().mockResolvedValue({});
+		await plugin.onload();
+		
 		expect(plugin.logger).toBeInstanceOf(SimpleLogger);
 	});
 
-	test('should handle authentication status correctly', () => {
+	test('should handle authentication status correctly', async () => {
+		plugin.loadData = jest.fn().mockResolvedValue({});
+		await plugin.onload();
+		
 		// Initially not authenticated
 		expect(plugin.isAuthenticated()).toBe(false);
 		

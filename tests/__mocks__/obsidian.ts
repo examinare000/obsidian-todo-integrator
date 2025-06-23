@@ -9,15 +9,18 @@ export class App {
 	
 	vault = {
 		adapter: {
-			exists: jest.fn(),
-			read: jest.fn(),
-			write: jest.fn(),
+			exists: jest.fn().mockResolvedValue(true),
+			read: jest.fn().mockResolvedValue(''),
+			write: jest.fn().mockResolvedValue(undefined),
 		},
-		getAbstractFileByPath: jest.fn(),
-		create: jest.fn(),
-		modify: jest.fn(),
-		read: jest.fn(),
-		getMarkdownFiles: jest.fn(() => []),
+		getAbstractFileByPath: jest.fn((path: string) => {
+			// Return a mock TFile for any requested path
+			return new TFile();
+		}),
+		create: jest.fn().mockResolvedValue(new TFile()),
+		modify: jest.fn().mockResolvedValue(undefined),
+		read: jest.fn().mockResolvedValue('# Test Note\n\n## ToDo\n\n- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3'),
+		getMarkdownFiles: jest.fn(() => [new TFile()]),
 	};
 	
 	metadataCache = {
@@ -119,12 +122,22 @@ export class TFile {
 	name: string;
 	basename: string;
 	extension: string;
+	stat: {
+		mtime: number;
+		ctime: number;
+		size: number;
+	};
 	
-	constructor(path: string) {
+	constructor(path: string = 'test.md') {
 		this.path = path;
 		this.name = path.split('/').pop() || '';
 		this.basename = this.name.split('.')[0];
 		this.extension = this.name.split('.').pop() || '';
+		this.stat = {
+			mtime: Date.now(),
+			ctime: Date.now(),
+			size: 100
+		};
 	}
 }
 

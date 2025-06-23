@@ -17,4 +17,9 @@ module.exports = {
 		'^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts',
 	},
 	testTimeout: 10000,
+	globals: {
+		'process.env': {
+			NODE_ENV: 'test'
+		}
+	}
 };

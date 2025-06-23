@@ -56,7 +56,9 @@ export class TodoIntegratorPlugin extends Plugin {
 
 		// Load settings
 		await this.loadSettings();
-		this.logger.setLogLevel(this.settings.logLevel);
+		if (this.settings?.logLevel) {
+			this.logger.setLogLevel(this.settings.logLevel);
+		}
 
 		// Initialize core components
 		this.initializeComponents();
@@ -82,7 +84,7 @@ export class TodoIntegratorPlugin extends Plugin {
 		this.addSettingTab(new TodoIntegratorSettingsTab(this.app, this));
 
 		// Initialize after authentication if already authenticated
-		if (this.settings.clientId && this.isAuthenticated()) {
+		if (this.settings?.clientId && this.isAuthenticated()) {
 			try {
 				await this.initializeAfterAuth();
 			} catch (error) {
@@ -119,7 +121,11 @@ export class TodoIntegratorPlugin extends Plugin {
 		this.authManager = new MSALAuthenticationManager(this.logger);
 		this.apiClient = new TodoApiClient(this.logger);
 		this.todoParser = new ObsidianTodoParser(this.app, this.logger, this.errorHandler);
-		this.dailyNoteManager = new DailyNoteManager(this.app, this.logger, this.settings.dailyNotesPath);
+		this.dailyNoteManager = new DailyNoteManager(
+			this.app, 
+			this.logger, 
+			this.settings?.dailyNotesPath || DEFAULT_SETTINGS.dailyNotesPath
+		);
 		this.synchronizer = new TodoSynchronizer(this.apiClient, this.dailyNoteManager, this.logger);
 	}
 
@@ -148,7 +154,12 @@ export class TodoIntegratorPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		try {
-			this.settings = await this.pluginSettings.loadSettings();
+			if (this.pluginSettings) {
+				this.settings = await this.pluginSettings.loadSettings();
+			} else {
+				const loadedSettings = await this.loadData();
+				this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
+			}
 			this.logger?.debug('Settings loaded successfully', { settings: this.settings });
 		} catch (error) {
 			this.logger?.error('Failed to load settings', { error });
@@ -158,10 +169,14 @@ export class TodoIntegratorPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		try {
-			await this.pluginSettings.saveSettings(this.settings);
-			this.logger.debug('Settings saved successfully');
+			if (this.pluginSettings) {
+				await this.pluginSettings.saveSettings(this.settings);
+			} else {
+				await this.saveData(this.settings);
+			}
+			this.logger?.debug('Settings saved successfully');
 		} catch (error) {
-			this.logger.error('Failed to save settings', { error });
+			this.logger?.error('Failed to save settings', { error });
 			throw error;
 		}
 	}

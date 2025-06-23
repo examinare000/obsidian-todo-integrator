@@ -186,7 +186,7 @@ export class DailyNoteManager {
 				const taskMatch = line.match(TASK_REGEX);
 
 				if (taskMatch) {
-					const [, completed, title, todoId, completionDate] = taskMatch;
+					const [, indent, completed, title, todoId, completionDate] = taskMatch;
 					
 					const task: DailyNoteTask = {
 						title: title.trim(),
