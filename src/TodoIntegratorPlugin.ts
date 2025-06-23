@@ -6,6 +6,7 @@ import { MSALAuthenticationManager } from './authentication/MSALAuthenticationMa
 import { TodoApiClient } from './api/TodoApiClient';
 import { AuthenticationModal } from './ui/AuthenticationModal';
 import { TodoIntegratorSettingsTab } from './ui/TodoIntegratorSettingsTab';
+import { SidebarButton } from './ui/SidebarButton';
 import { DailyNoteManager } from './sync/DailyNoteManager';
 import { TodoSynchronizer } from './sync/TodoSynchronizer';
 import {
@@ -26,6 +27,7 @@ export class TodoIntegratorPlugin extends Plugin {
 	apiClient: TodoApiClient;
 	dailyNoteManager: DailyNoteManager;
 	synchronizer: TodoSynchronizer;
+	sidebarButton: SidebarButton;
 	logger: Logger;
 	private syncInterval: number | null = null;
 	private currentAuthModal: AuthenticationModal | null = null;
@@ -48,6 +50,13 @@ export class TodoIntegratorPlugin extends Plugin {
 		});
 
 		this.addStatusBarItem().setText(UI_TEXT.PLUGIN_NAME);
+
+		// Create sidebar button
+		this.sidebarButton = new SidebarButton(
+			this.app,
+			() => this.performManualSync(),
+			this.logger
+		);
 
 		// Add commands
 		this.addCommands();
@@ -78,6 +87,10 @@ export class TodoIntegratorPlugin extends Plugin {
 		if (this.currentAuthModal) {
 			this.currentAuthModal.close();
 			this.currentAuthModal = null;
+		}
+
+		if (this.sidebarButton) {
+			this.sidebarButton.destroy();
 		}
 
 		if (this.logger) {
@@ -172,6 +185,9 @@ export class TodoIntegratorPlugin extends Plugin {
 
 			new Notice(`Welcome, ${userInfo.displayName}! Authentication successful.`);
 
+			// Update sidebar button auth status
+			this.sidebarButton.updateAuthenticationStatus(true);
+
 			// Initialize post-auth components
 			await this.initializeAfterAuth();
 
@@ -248,6 +264,12 @@ export class TodoIntegratorPlugin extends Plugin {
 			new Notice(UI_TEXT.SYNC.IN_PROGRESS);
 			this.logger.info('Starting manual sync');
 
+			// Update sidebar status
+			this.sidebarButton.updateSyncStatus({
+				status: 'syncing',
+				message: 'Synchronizing tasks...',
+			});
+
 			const result = await this.performSync();
 
 			const totalAdded = result.msftToObsidian.added + result.obsidianToMsft.added;
@@ -257,8 +279,18 @@ export class TodoIntegratorPlugin extends Plugin {
 
 			if (totalErrors === 0) {
 				new Notice(`${UI_TEXT.SYNC.SUCCESS}. Added ${totalAdded} tasks.`);
+				this.sidebarButton.updateSyncStatus({
+					status: 'success',
+					message: `Added ${totalAdded} tasks`,
+					lastSync: new Date().toISOString(),
+				});
 			} else {
 				new Notice(`Sync completed with ${totalErrors} errors. Added ${totalAdded} tasks.`);
+				this.sidebarButton.updateSyncStatus({
+					status: 'error',
+					message: `${totalErrors} errors occurred`,
+					lastSync: new Date().toISOString(),
+				});
 			}
 
 			// Update last sync time
@@ -270,6 +302,10 @@ export class TodoIntegratorPlugin extends Plugin {
 		} catch (error) {
 			this.logger.error('Manual sync failed', { error });
 			new Notice(`${UI_TEXT.SYNC.ERROR}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			this.sidebarButton.updateSyncStatus({
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown error',
+			});
 		}
 	}
 
@@ -363,6 +399,10 @@ export class TodoIntegratorPlugin extends Plugin {
 			
 			// Reset API client
 			this.apiClient = new TodoApiClient(this.logger);
+			
+			// Update sidebar button
+			this.sidebarButton.updateAuthenticationStatus(false);
+			this.sidebarButton.updateSyncStatus({ status: 'idle' });
 			
 			new Notice('Logged out successfully');
 			this.logger.info('User logged out');
