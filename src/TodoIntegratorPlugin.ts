@@ -41,8 +41,12 @@ export class TodoIntegratorPlugin extends Plugin {
 	private currentAuthModal: AuthenticationModal | null = null;
 
 	async onload(): Promise<void> {
-		// Initialize logger
-		this.logger = new SimpleLogger();
+		// Pre-load settings to get log level
+		const preloadedSettings = await this.loadData();
+		const logLevel = preloadedSettings?.logLevel || 'info';
+		
+		// Initialize logger with correct log level
+		this.logger = new SimpleLogger(logLevel);
 		this.logger.info('ToDo Integrator plugin loading...');
 
 		// Initialize error handler
@@ -59,11 +63,8 @@ export class TodoIntegratorPlugin extends Plugin {
 		// Initialize Daily Notes detector
 		this.dailyNotesDetector = new DailyNotesDetector(this.app, this.logger);
 
-		// Load settings
+		// Load settings (properly this time)
 		await this.loadSettings();
-		if (this.settings?.logLevel) {
-			this.logger.setLogLevel(this.settings.logLevel);
-		}
 
 		// Initialize core components
 		this.initializeComponents();
