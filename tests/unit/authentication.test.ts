@@ -159,7 +159,7 @@ describe('MSALAuthenticationManager', () => {
 		});
 
 		it('should throw error if no authentication available', async () => {
-			await expect(authManager.getAccessToken()).rejects.toThrow('TOKEN_EXPIRED: Please re-authenticate');
+			await expect(authManager.getAccessToken()).rejects.toThrow('No authentication available. Please authenticate first.');
 		});
 	});
 
