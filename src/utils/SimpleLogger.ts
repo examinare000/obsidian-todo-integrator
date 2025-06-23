@@ -95,7 +95,14 @@ export class SimpleLogger implements Logger {
 	}
 
 	private addToHistory(logEntry: { level: string; message: string; timestamp: string; context?: any }): void {
-		this.logHistory.push(logEntry);
+		// Sanitize sensitive information before storing in history
+		const sanitizedEntry = {
+			...logEntry,
+			message: this.sanitizeSensitiveInfo(logEntry.message),
+			context: logEntry.context ? this.sanitizeContext(logEntry.context) : undefined
+		};
+		
+		this.logHistory.push(sanitizedEntry);
 		
 		// Keep history size manageable
 		if (this.logHistory.length > this.maxHistorySize) {
@@ -118,5 +125,61 @@ export class SimpleLogger implements Logger {
 				return `${entry.timestamp} [${entry.level.toUpperCase()}] ${entry.message}${contextStr}`;
 			})
 			.join('\n');
+	}
+
+	/**
+	 * Sanitize sensitive information from log messages
+	 */
+	private sanitizeSensitiveInfo(message: string): string {
+		if (typeof message !== 'string') {
+			return message;
+		}
+
+		return message
+			// Mask Bearer tokens
+			.replace(/Bearer [A-Za-z0-9\-._~+/]+=*/g, 'Bearer [MASKED]')
+			// Mask passwords
+			.replace(/password[=:]\s*[^\s]+/gi, 'password=[MASKED]')
+			// Mask tokens
+			.replace(/token[=:]\s*[^\s]+/gi, 'token=[MASKED]')
+			// Mask API keys
+			.replace(/key[=:]\s*[^\s]+/gi, 'key=[MASKED]')
+			// Mask secrets
+			.replace(/secret[=:]\s*[^\s]+/gi, 'secret=[MASKED]')
+			// Mask file paths (partial)
+			.replace(/\/Users\/[^\/\s]+/g, '/Users/[MASKED]')
+			.replace(/\\Users\\[^\\]+/g, '\\Users\\[MASKED]')
+			.replace(/C:\\[^\\]+/g, 'C:\\[MASKED]')
+			// Mask email addresses partially
+			.replace(/([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '[MASKED]@$2');
+	}
+
+	/**
+	 * Sanitize sensitive information from context objects
+	 */
+	private sanitizeContext(context: any): any {
+		if (!context || typeof context !== 'object') {
+			return context;
+		}
+
+		const sanitized = { ...context };
+
+		// Recursively sanitize object properties
+		for (const key in sanitized) {
+			if (sanitized.hasOwnProperty(key)) {
+				const value = sanitized[key];
+				
+				// Sanitize known sensitive keys
+				if (/token|password|secret|key|bearer|authorization/i.test(key)) {
+					sanitized[key] = '[MASKED]';
+				} else if (typeof value === 'string') {
+					sanitized[key] = this.sanitizeSensitiveInfo(value);
+				} else if (typeof value === 'object' && value !== null) {
+					sanitized[key] = this.sanitizeContext(value);
+				}
+			}
+		}
+
+		return sanitized;
 	}
 }
