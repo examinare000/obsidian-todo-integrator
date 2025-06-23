@@ -518,6 +518,13 @@ export class TodoIntegratorPlugin extends Plugin {
 			}
 		} else if (key === 'syncIntervalMinutes' && this.settings.autoSyncEnabled) {
 			this.startAutoSync(); // Restart with new interval
+		} else if (key === 'dailyNoteTemplate' || key === 'dailyNotesPath' || key === 'dailyNoteDateFormat') {
+			// Update DailyNoteManager with new settings
+			this.dailyNoteManager.updateSettings(
+				this.settings.dailyNotesPath,
+				this.settings.dailyNoteDateFormat,
+				this.settings.dailyNoteTemplate
+			);
 		}
 	}
 
