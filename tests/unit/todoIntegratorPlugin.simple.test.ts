@@ -13,6 +13,9 @@ describe('TodoIntegratorPlugin - Basic Functionality', () => {
 			id: 'todo-integrator',
 			name: 'ToDo Integrator',
 			version: '0.1.2',
+			author: 'Test Author',
+			minAppVersion: '1.0.0',
+			description: 'Test plugin for unit testing',
 		});
 	});
 

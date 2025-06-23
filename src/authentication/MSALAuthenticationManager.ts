@@ -41,10 +41,7 @@ export class MSALAuthenticationManager {
 				authority: `https://login.microsoftonline.com/${tenantId}`,
 				knownAuthorities: ['login.microsoftonline.com'],
 			},
-			cache: {
-				cacheLocation: 'sessionStorage',
-				storeAuthStateInCookie: false,
-			},
+			cache: {},
 			system: {
 				loggerOptions: {
 					loggerCallback: (level, message, containsPii) => {

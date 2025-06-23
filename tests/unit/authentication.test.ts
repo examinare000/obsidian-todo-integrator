@@ -91,7 +91,7 @@ describe('MSALAuthenticationManager', () => {
 
 			mockPca.getTokenCache().getAllAccounts.mockReturnValue([]);
 			mockPca.acquireTokenSilent.mockRejectedValue(new Error('No cached token'));
-			mockPca.acquireTokenByDeviceCode.mockImplementation((request, callback) => {
+			mockPca.acquireTokenByDeviceCode.mockImplementation((request: any, callback: (deviceCode: DeviceCodeResponse) => void) => {
 				const deviceCode: DeviceCodeResponse = {
 					userCode: 'ABC123',
 					deviceCode: 'device-code',

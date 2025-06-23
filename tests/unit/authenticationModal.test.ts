@@ -60,6 +60,7 @@ describe('AuthenticationModal', () => {
 			const userInfo = {
 				email: 'test@example.com',
 				displayName: 'Test User',
+				id: 'test-user-id',
 			};
 
 			modal.showAuthenticationSuccess(userInfo);
