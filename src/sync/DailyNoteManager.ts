@@ -127,14 +127,15 @@ export class DailyNoteManager {
 				throw new Error(`File not found: ${filePath}`);
 			}
 
-			const content = await this.app.vault.read(file);
-			const lines = content.split('\n');
-
 			// Use provided task section heading or fallback to default
 			const sectionHeader = taskSectionHeading || TODO_SECTION_HEADER;
 
 			// Find Todo section
 			const todoSectionLine = await this.findOrCreateTodoSection(filePath, sectionHeader);
+			
+			// Re-read the file content after potentially creating a new section
+			const content = await this.app.vault.read(file);
+			const lines = content.split('\n');
 			
 			// Find insertion point within Todo section
 			let insertionLine = todoSectionLine + 1;
