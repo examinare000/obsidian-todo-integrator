@@ -11,21 +11,32 @@ import {
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
+// Note: Using native Date formatting to avoid moment dependency issues in tests
 
 export class DailyNoteManager {
 	private app: App;
 	private logger: Logger;
 	private dailyNotesPath: string;
+	private dateFormat: string;
+	private templatePath?: string;
 
-	constructor(app: App, logger: Logger, dailyNotesPath: string = 'Daily Notes') {
+	constructor(
+		app: App, 
+		logger: Logger, 
+		dailyNotesPath: string = 'Daily Notes',
+		dateFormat: string = 'YYYY-MM-DD',
+		templatePath?: string
+	) {
 		this.app = app;
 		this.logger = logger;
 		this.dailyNotesPath = dailyNotesPath;
+		this.dateFormat = dateFormat;
+		this.templatePath = templatePath;
 	}
 
 	getTodayNotePath(): string {
 		const today = new Date();
-		const dateString = today.toISOString().slice(0, 10); // YYYY-MM-DD format
+		const dateString = this.formatDate(today, this.dateFormat);
 		return `${this.dailyNotesPath}/${dateString}.md`;
 	}
 
@@ -42,7 +53,7 @@ export class DailyNoteManager {
 
 			// Create new daily note
 			this.logger.info('Creating new daily note', { path: todayPath });
-			const defaultContent = this.generateDefaultDailyNoteContent();
+			const defaultContent = await this.generateDailyNoteContent();
 			
 			await this.app.vault.create(todayPath, defaultContent);
 			this.logger.info('Daily note created successfully', { path: todayPath });
@@ -282,6 +293,70 @@ export class DailyNoteManager {
 		}
 	}
 
+	private async generateDailyNoteContent(): Promise<string> {
+		// If template is specified, try to use it
+		if (this.templatePath) {
+			try {
+				const templateContent = await this.loadTemplate();
+				if (templateContent) {
+					return this.processTemplate(templateContent);
+				}
+			} catch (error) {
+				this.logger.error('Failed to load template, using default content', { 
+					templatePath: this.templatePath, 
+					error 
+				});
+			}
+		}
+
+		// Fallback to default content
+		return this.generateDefaultDailyNoteContent();
+	}
+
+	private async loadTemplate(): Promise<string | null> {
+		if (!this.templatePath) {
+			return null;
+		}
+
+		try {
+			const templateFile = this.app.vault.getAbstractFileByPath(this.templatePath);
+			if (!templateFile || !(templateFile instanceof TFile)) {
+				this.logger.warn('Template file not found', { templatePath: this.templatePath });
+				return null;
+			}
+
+			const content = await this.app.vault.read(templateFile);
+			this.logger.debug('Template loaded successfully', { templatePath: this.templatePath });
+			return content;
+
+		} catch (error) {
+			this.logger.error('Error loading template file', { templatePath: this.templatePath, error });
+			return null;
+		}
+	}
+
+	private processTemplate(templateContent: string): string {
+		const today = new Date();
+		
+		// Replace common template variables
+		let processedContent = templateContent
+			.replace(/\{\{date\}\}/g, this.formatDate(today, this.dateFormat))
+			.replace(/\{\{date:YYYY-MM-DD\}\}/g, this.formatDate(today, 'YYYY-MM-DD'))
+			.replace(/\{\{date:DD-MM-YYYY\}\}/g, this.formatDate(today, 'DD-MM-YYYY'))
+			.replace(/\{\{date:MM-DD-YYYY\}\}/g, this.formatDate(today, 'MM-DD-YYYY'))
+			.replace(/\{\{date:YYYY\/MM\/DD\}\}/g, this.formatDate(today, 'YYYY/MM/DD'))
+			.replace(/\{\{title\}\}/g, `Daily Note - ${this.formatDate(today, 'MMMM Do, YYYY')}`)
+			.replace(/\{\{time\}\}/g, this.formatTime(today))
+			.replace(/\{\{timestamp\}\}/g, this.formatTimestamp(today));
+
+		this.logger.debug('Template processed successfully', { 
+			originalLength: templateContent.length,
+			processedLength: processedContent.length 
+		});
+
+		return processedContent;
+	}
+
 	private generateDefaultDailyNoteContent(): string {
 		const today = new Date();
 		const dateString = today.toLocaleDateString('en-US', {
@@ -338,5 +413,77 @@ export class DailyNoteManager {
 
 	getDailyNotesPath(): string {
 		return this.dailyNotesPath;
+	}
+
+	setDateFormat(format: string): void {
+		this.dateFormat = format;
+		this.logger.debug('Daily notes date format updated', { format });
+	}
+
+	getDateFormat(): string {
+		return this.dateFormat;
+	}
+
+	setTemplatePath(path?: string): void {
+		this.templatePath = path;
+		this.logger.debug('Daily notes template path updated', { path: path || 'none' });
+	}
+
+	getTemplatePath(): string | undefined {
+		return this.templatePath;
+	}
+
+	updateSettings(path: string, dateFormat: string, templatePath?: string): void {
+		this.dailyNotesPath = path;
+		this.dateFormat = dateFormat;
+		this.templatePath = templatePath;
+		this.logger.debug('Daily notes settings updated', { 
+			path, 
+			dateFormat, 
+			templatePath: templatePath || 'none' 
+		});
+	}
+
+	private formatDate(date: Date, format: string): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+
+		switch (format) {
+			case 'YYYY-MM-DD':
+				return `${year}-${month}-${day}`;
+			case 'DD-MM-YYYY':
+				return `${day}-${month}-${year}`;
+			case 'MM-DD-YYYY':
+				return `${month}-${day}-${year}`;
+			case 'YYYY/MM/DD':
+				return `${year}/${month}/${day}`;
+			case 'DD/MM/YYYY':
+				return `${day}/${month}/${year}`;
+			case 'MM/DD/YYYY':
+				return `${month}/${day}/${year}`;
+			case 'MMMM Do, YYYY':
+				return date.toLocaleDateString('en-US', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+				});
+			default:
+				// Fallback to ISO format
+				return `${year}-${month}-${day}`;
+		}
+	}
+
+	private formatTime(date: Date): string {
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${hours}:${minutes}`;
+	}
+
+	private formatTimestamp(date: Date): string {
+		const dateString = this.formatDate(date, 'YYYY-MM-DD');
+		const timeString = this.formatTime(date);
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${dateString} ${timeString}:${seconds}`;
 	}
 }

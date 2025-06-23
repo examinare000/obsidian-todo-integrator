@@ -10,6 +10,8 @@ export interface TodoIntegratorSettings {
 	logLevel: 'debug' | 'info' | 'error';
 	lastSyncTime?: string;
 	advancedConfigEnabled: boolean;
+	dailyNoteDateFormat: string;
+	dailyNoteTemplate?: string;
 }
 
 export interface AuthenticationResult {

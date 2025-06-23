@@ -12,6 +12,8 @@ export const DEFAULT_SETTINGS = {
 	syncIntervalMinutes: PLUGIN_CONFIG.DEFAULT_SYNC_INTERVAL_MINUTES,
 	logLevel: 'info' as const,
 	advancedConfigEnabled: false,
+	dailyNoteDateFormat: 'YYYY-MM-DD',
+	dailyNoteTemplate: undefined,
 };
 
 export const MSAL_CONFIG = {
