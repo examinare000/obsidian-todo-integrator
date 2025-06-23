@@ -37,7 +37,9 @@ export class DailyNoteManager {
 	getTodayNotePath(): string {
 		const today = new Date();
 		const dateString = this.formatDate(today, this.dateFormat);
-		return `${this.dailyNotesPath}/${dateString}.md`;
+		// Security check: ensure path doesn't contain traversal attempts
+		const safePath = this.sanitizePath(`${this.dailyNotesPath}/${dateString}.md`);
+		return safePath;
 	}
 
 	async ensureTodayNoteExists(): Promise<string> {
@@ -421,7 +423,9 @@ export class DailyNoteManager {
 	getNotePath(date: string): string {
 		// Convert date to filename format
 		const formattedDate = this.formatDate(new Date(date), this.dateFormat);
-		return `${this.dailyNotesPath}/${formattedDate}.md`;
+		// Security check: ensure path doesn't contain traversal attempts
+		const safePath = this.sanitizePath(`${this.dailyNotesPath}/${formattedDate}.md`);
+		return safePath;
 	}
 
 	async updateTaskCompletion(
@@ -679,5 +683,19 @@ export class DailyNoteManager {
 		const timeString = this.formatTime(date);
 		const seconds = String(date.getSeconds()).padStart(2, '0');
 		return `${dateString} ${timeString}:${seconds}`;
+	}
+
+	private sanitizePath(path: string): string {
+		// Remove any path traversal attempts and dangerous characters
+		if (path.includes('..') || path.includes('\\')) {
+			throw new Error('Invalid path: Path traversal attempt detected');
+		}
+		
+		// Additional security: ensure path doesn't contain dangerous characters
+		if (/[<>:"|?*]/.test(path)) {
+			throw new Error('Invalid path: Contains forbidden characters');
+		}
+		
+		return path;
 	}
 }
