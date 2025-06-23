@@ -96,16 +96,18 @@ export class TodoSynchronizer {
 					// Ensure the target note exists
 					await this.ensureNoteExists(targetNotePath, taskStartDate);
 					
+					const cleanedTitle = this.cleanTaskTitle(task.title);
 					await this.dailyNoteManager.addTaskToTodoSection(
 						targetNotePath,
-						this.cleanTaskTitle(task.title),
+						cleanedTitle,
 						task.id,
 						this.taskSectionHeading
 					);
 					added++;
 					this.logger.debug('Added Microsoft task to Obsidian', { 
 						taskId: task.id, 
-						title: task.title,
+						originalTitle: task.title,
+						cleanedTitle: cleanedTitle,
 						targetNote: targetNotePath,
 						startDate: taskStartDate
 					});
@@ -431,6 +433,8 @@ export class TodoSynchronizer {
 
 	private cleanTaskTitle(title: string): string {
 		// Remove [todo::ID] pattern from the title
-		return title.replace(/\s*\[todo::[^\]]+\]\s*/g, '').trim();
+		const cleaned = title.replace(/\s*\[todo::[^\]]+\]\s*/g, '').replace(/\s+/g, ' ').trim();
+		this.logger.debug('Cleaning task title', { original: title, cleaned });
+		return cleaned;
 	}
 }
