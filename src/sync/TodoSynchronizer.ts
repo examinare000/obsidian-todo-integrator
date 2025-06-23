@@ -78,21 +78,26 @@ export class TodoSynchronizer {
 
 		try {
 			// Get tasks from both sources
-			const [msftTasks, dailyTasks] = await Promise.all([
+			const [msftTasks, allDailyTasks] = await Promise.all([
 				this.apiClient.getTasks(),
-				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath(), this.taskSectionHeading),
+				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 
 			// Find new Microsoft tasks that don't exist in Obsidian
-			const newMsftTasks = this.findNewMsftTasks(msftTasks, dailyTasks);
+			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks);
 
-			// Add each new task to the daily note
-			const todayPath = this.dailyNoteManager.getTodayNotePath();
-			
+			// Add each new task to the appropriate daily note based on creation date
 			for (const task of newMsftTasks) {
 				try {
+					// Extract date from Microsoft Todo task creation date
+					const taskStartDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
+					const targetNotePath = this.dailyNoteManager.getNotePath(taskStartDate);
+					
+					// Ensure the target note exists
+					await this.ensureNoteExists(targetNotePath, taskStartDate);
+					
 					await this.dailyNoteManager.addTaskToTodoSection(
-						todayPath,
+						targetNotePath,
 						task.title,
 						task.id,
 						this.taskSectionHeading
@@ -100,7 +105,9 @@ export class TodoSynchronizer {
 					added++;
 					this.logger.debug('Added Microsoft task to Obsidian', { 
 						taskId: task.id, 
-						title: task.title 
+						title: task.title,
+						targetNote: targetNotePath,
+						startDate: taskStartDate
 					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -130,14 +137,11 @@ export class TodoSynchronizer {
 		let added = 0;
 
 		try {
-			// Get daily note tasks
-			const dailyTasks = await this.dailyNoteManager.getDailyNoteTasks(
-				this.dailyNoteManager.getTodayNotePath(),
-				this.taskSectionHeading
-			);
+			// Get all daily note tasks from all files
+			const allDailyTasks = await this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading);
 
 			// Find new Obsidian tasks (those without todoId)
-			const newObsidianTasks = dailyTasks.filter(task => !task.todoId && !task.completed);
+			const newObsidianTasks = allDailyTasks.filter(task => !task.todoId && !task.completed);
 
 			// Get default list ID
 			const listId = this.apiClient.getDefaultListId();
@@ -145,20 +149,24 @@ export class TodoSynchronizer {
 				throw new Error('No default Microsoft Todo list configured');
 			}
 
-			// Create each new task in Microsoft Todo
-			const todayPath = this.dailyNoteManager.getTodayNotePath();
-
+			// Create each new task in Microsoft Todo with start date
 			for (const task of newObsidianTasks) {
 				try {
-					const createdTask = await this.apiClient.createTask(listId, task.title);
+					const createdTask = await this.apiClient.createTaskWithStartDate(
+						listId, 
+						task.title,
+						task.startDate
+					);
 					
 					// Update the task line in Obsidian to include the Microsoft Todo ID
-					await this.updateTaskWithTodoId(todayPath, task.lineNumber, createdTask.id);
+					await this.updateTaskWithTodoId(task.filePath!, task.lineNumber, createdTask.id);
 					
 					added++;
 					this.logger.debug('Added Obsidian task to Microsoft', { 
 						taskTitle: task.title,
-						msftTaskId: createdTask.id 
+						msftTaskId: createdTask.id,
+						startDate: task.startDate,
+						filePath: task.filePath
 					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -187,20 +195,19 @@ export class TodoSynchronizer {
 		let completed = 0;
 
 		try {
-			const [msftTasks, dailyTasks] = await Promise.all([
+			const [msftTasks, allDailyTasks] = await Promise.all([
 				this.apiClient.getTasks(),
-				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath(), this.taskSectionHeading),
+				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 
 			// Create lookup maps
 			const msftTasksById = new Map(msftTasks.map(task => [task.id, task]));
 			const dailyTasksById = new Map(
-				dailyTasks
+				allDailyTasks
 					.filter(task => task.todoId)
 					.map(task => [task.todoId!, task])
 			);
 
-			const todayPath = this.dailyNoteManager.getTodayNotePath();
 			const listId = this.apiClient.getDefaultListId();
 
 			// Sync Microsoft completions to Obsidian
@@ -217,7 +224,7 @@ export class TodoSynchronizer {
 							: new Date().toISOString().slice(0, 10);
 
 						await this.dailyNoteManager.updateTaskCompletion(
-							todayPath,
+							dailyTask.filePath!,
 							dailyTask.lineNumber,
 							true,
 							completionDate
@@ -226,6 +233,7 @@ export class TodoSynchronizer {
 						this.logger.debug('Marked Obsidian task as completed from Microsoft', {
 							taskId: msftTask.id,
 							title: msftTask.title,
+							filePath: dailyTask.filePath
 						});
 					} catch (error) {
 						const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -234,26 +242,30 @@ export class TodoSynchronizer {
 				}
 			}
 
-			// Sync Obsidian completions to Microsoft
-			for (const dailyTask of dailyTasks) {
-				if (!dailyTask.todoId) continue;
+			// Sync Obsidian completions to Microsoft (matching by title and start date)
+			for (const dailyTask of allDailyTasks) {
+				if (!dailyTask.completed || dailyTask.todoId) continue; // Skip incomplete tasks or tasks already synced
 				
-				const msftTask = msftTasksById.get(dailyTask.todoId);
-				if (!msftTask) continue;
+				// Find matching Microsoft task by title and creation date
+				const matchingMsftTask = msftTasks.find(msftTask => {
+					const msftStartDate = new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
+					return this.normalizeTitle(msftTask.title) === this.normalizeTitle(dailyTask.title) &&
+						   msftStartDate === dailyTask.startDate &&
+						   msftTask.status !== 'completed';
+				});
 
-				const msftCompleted = msftTask.status === 'completed';
-				
-				if (dailyTask.completed && !msftCompleted) {
+				if (matchingMsftTask) {
 					try {
 						if (!listId) {
 							throw new Error('No default list ID available');
 						}
 
-						await this.apiClient.completeTask(listId, dailyTask.todoId);
+						await this.apiClient.completeTask(listId, matchingMsftTask.id);
 						completed++;
 						this.logger.debug('Marked Microsoft task as completed from Obsidian', {
-							taskId: dailyTask.todoId,
+							taskId: matchingMsftTask.id,
 							title: dailyTask.title,
+							filePath: dailyTask.filePath
 						});
 					} catch (error) {
 						const errorMsg = `Failed to complete Microsoft task "${dailyTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -318,17 +330,86 @@ export class TodoSynchronizer {
 
 	private async updateTaskWithTodoId(filePath: string, lineNumber: number, todoId: string): Promise<void> {
 		try {
-			// This is a simplified implementation
-			// In a real implementation, you'd want to read the file, update the specific line
-			// to add the [todo::id] part, and write it back
-			this.logger.debug('Would update task with todo ID', { filePath, lineNumber, todoId });
+			// Get access to DailyNoteManager's app instance
+			const app = (this.dailyNoteManager as any).app;
 			
-			// For now, we'll leave this as a placeholder since the full implementation
-			// would require more complex file manipulation
+			// Read the file content
+			const file = app.vault.getAbstractFileByPath(filePath);
+			if (!file) {
+				throw new Error(`File not found: ${filePath}`);
+			}
+
+			const content = await app.vault.read(file);
+			const lines = content.split('\n');
+
+			if (lineNumber >= lines.length) {
+				throw new Error(`Line number ${lineNumber} is out of bounds`);
+			}
+
+			// Update the specific line to add the todo ID
+			const currentLine = lines[lineNumber];
+			
+			// Check if todo ID already exists to avoid duplicates
+			if (currentLine.includes('[todo::')) {
+				this.logger.debug('Task already has todo ID, skipping update', { filePath, lineNumber, todoId });
+				return;
+			}
+
+			// Add todo ID to the end of the task line
+			const updatedLine = currentLine + ` [todo::${todoId}]`;
+			lines[lineNumber] = updatedLine;
+
+			// Write the updated content back to the file
+			const newContent = lines.join('\n');
+			await app.vault.modify(file, newContent);
+
+			this.logger.debug('Updated task with todo ID', { filePath, lineNumber, todoId });
 		} catch (error) {
 			this.logger.error('Failed to update task with todo ID', { filePath, lineNumber, todoId, error });
 			throw error;
 		}
+	}
+
+	private async ensureNoteExists(notePath: string, date: string): Promise<void> {
+		try {
+			// Get access to DailyNoteManager's app instance
+			const app = (this.dailyNoteManager as any).app;
+			
+			const file = app.vault.getAbstractFileByPath(notePath);
+			if (file) {
+				this.logger.debug('Note already exists', { notePath });
+				return;
+			}
+
+			// Create the note with basic daily note structure
+			const dateObj = new Date(date);
+			const defaultContent = await this.generateDailyNoteContent(dateObj);
+			
+			await app.vault.create(notePath, defaultContent);
+			this.logger.info('Created daily note', { notePath, date });
+		} catch (error) {
+			this.logger.error('Failed to ensure note exists', { notePath, date, error });
+			throw error;
+		}
+	}
+
+	private async generateDailyNoteContent(date: Date): Promise<string> {
+		const dateString = date.toLocaleDateString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+		});
+
+		return `# Daily Note - ${dateString}
+
+## ToDo
+
+## Notes
+
+## Reflections
+
+`;
 	}
 
 	private normalizeTitle(title: string): string {

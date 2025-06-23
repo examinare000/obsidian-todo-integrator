@@ -46,6 +46,10 @@ export interface TodoTask {
 		dateTime: string;
 		timeZone: string;
 	};
+	startDateTime?: {
+		dateTime: string;
+		timeZone: string;
+	};
 	body?: {
 		content: string;
 		contentType: string;
@@ -77,6 +81,8 @@ export interface DailyNoteTask {
 	lineNumber: number;
 	todoId?: string;
 	completionDate?: string;
+	startDate?: string;
+	filePath?: string;
 }
 
 export interface SyncResult {

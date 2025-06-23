@@ -192,7 +192,11 @@ export class TodoApiClient {
 		}
 	}
 
-	async createTask(listId: string, title: string, startDate?: string): Promise<TodoTask> {
+	async createTask(listId: string, title: string): Promise<TodoTask> {
+		return this.createTaskWithStartDate(listId, title);
+	}
+
+	async createTaskWithStartDate(listId: string, title: string, startDate?: string): Promise<TodoTask> {
 		this.validateInitialization();
 
 		try {
@@ -202,8 +206,10 @@ export class TodoApiClient {
 			};
 
 			if (startDate) {
+				// Convert date string to ISO format for Microsoft Graph API
+				const dateObj = new Date(startDate);
 				taskData.startDateTime = {
-					dateTime: startDate,
+					dateTime: dateObj.toISOString(),
 					timeZone: 'UTC',
 				};
 			}
@@ -225,6 +231,7 @@ export class TodoApiClient {
 			this.logger.info('Task created successfully', {
 				taskId: newTask.id,
 				title: newTask.title,
+				startDate: startDate
 			});
 
 			return newTask;
@@ -232,11 +239,11 @@ export class TodoApiClient {
 		} catch (error) {
 			const context: ErrorContext = {
 				component: 'TodoApiClient',
-				method: 'createTask',
+				method: 'createTaskWithStartDate',
 				timestamp: new Date().toISOString(),
-				details: { listId, title, error },
+				details: { listId, title, startDate, error },
 			};
-			this.logger.error('Failed to create task', context);
+			this.logger.error('Failed to create task with start date', context);
 			throw new Error(`${ERROR_CODES.API_ERROR}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 		}
 	}

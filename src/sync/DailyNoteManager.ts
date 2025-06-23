@@ -199,6 +199,9 @@ export class DailyNoteManager {
 			const lines = content.split('\n');
 			const tasks: DailyNoteTask[] = [];
 
+			// Extract date from filename for startDate
+			const startDate = this.extractDateFromFilename(filePath);
+
 			// If taskSectionHeading is provided, find the section boundaries
 			let sectionStartIndex = -1;
 			let sectionEndIndex = lines.length;
@@ -253,6 +256,8 @@ export class DailyNoteManager {
 						lineNumber: i,
 						todoId: todoId || undefined,
 						completionDate: completionDate || undefined,
+						startDate: startDate,
+						filePath: filePath,
 					};
 
 					tasks.push(task);
@@ -278,6 +283,145 @@ export class DailyNoteManager {
 			this.logger.error('Failed to get daily note tasks', context);
 			throw error;
 		}
+	}
+
+	async getAllDailyNoteTasks(taskSectionHeading?: string): Promise<DailyNoteTask[]> {
+		try {
+			const allTasks: DailyNoteTask[] = [];
+			
+			// Get all markdown files in daily notes folder
+			const dailyNotesFiles = await this.getAllDailyNoteFiles();
+			
+			// Process each file to extract tasks
+			for (const file of dailyNotesFiles) {
+				try {
+					const tasks = await this.getDailyNoteTasks(file.path, taskSectionHeading);
+					allTasks.push(...tasks);
+				} catch (error) {
+					this.logger.warn(`Failed to get tasks from ${file.path}`, { error });
+					// Continue processing other files
+				}
+			}
+
+			this.logger.info('Retrieved all daily note tasks', { 
+				fileCount: dailyNotesFiles.length,
+				taskCount: allTasks.length 
+			});
+
+			return allTasks;
+
+		} catch (error) {
+			const context: ErrorContext = {
+				component: 'DailyNoteManager',
+				method: 'getAllDailyNoteTasks',
+				timestamp: new Date().toISOString(),
+				details: { taskSectionHeading, error },
+			};
+			this.logger.error('Failed to get all daily note tasks', context);
+			throw error;
+		}
+	}
+
+	async getAllDailyNoteFiles(): Promise<TFile[]> {
+		try {
+			const dailyNotesFolder = this.app.vault.getAbstractFileByPath(this.dailyNotesPath);
+			
+			if (!dailyNotesFolder) {
+				this.logger.warn('Daily notes folder not found', { 
+					dailyNotesPath: this.dailyNotesPath 
+				});
+				return [];
+			}
+
+			const markdownFiles: TFile[] = [];
+			
+			// Get all files in the vault and filter for daily notes folder
+			const allFiles = this.app.vault.getMarkdownFiles();
+			
+			for (const file of allFiles) {
+				// Check if file is in the daily notes folder
+				if (file.path.startsWith(this.dailyNotesPath + '/')) {
+					// Check if filename looks like a date
+					if (this.isDateFilename(file.name)) {
+						markdownFiles.push(file);
+					}
+				}
+			}
+
+			this.logger.debug('Found daily note files', { 
+				folderPath: this.dailyNotesPath,
+				fileCount: markdownFiles.length 
+			});
+
+			return markdownFiles;
+
+		} catch (error) {
+			const context: ErrorContext = {
+				component: 'DailyNoteManager',
+				method: 'getAllDailyNoteFiles',
+				timestamp: new Date().toISOString(),
+				details: { dailyNotesPath: this.dailyNotesPath, error },
+			};
+			this.logger.error('Failed to get daily note files', context);
+			throw error;
+		}
+	}
+
+	extractDateFromFilename(filePath: string): string | undefined {
+		const fileName = filePath.split('/').pop()?.replace('.md', '') || '';
+		
+		// Try various date formats commonly used in daily notes
+		const dateFormats = [
+			/^(\d{4}-\d{2}-\d{2})$/,           // YYYY-MM-DD
+			/^(\d{2}-\d{2}-\d{4})$/,           // DD-MM-YYYY
+			/^(\d{2}\/\d{2}\/\d{4})$/,         // DD/MM/YYYY
+			/^(\d{4}\/\d{2}\/\d{2})$/,         // YYYY/MM/DD
+			/^(\d{4}\d{2}\d{2})$/,             // YYYYMMDD
+		];
+
+		for (const format of dateFormats) {
+			const match = fileName.match(format);
+			if (match) {
+				return this.normalizeDateString(match[1]);
+			}
+		}
+
+		this.logger.debug('Could not extract date from filename', { fileName });
+		return undefined;
+	}
+
+	private isDateFilename(filename: string): boolean {
+		const nameWithoutExtension = filename.replace('.md', '');
+		return this.extractDateFromFilename(nameWithoutExtension + '.md') !== undefined;
+	}
+
+	private normalizeDateString(dateString: string): string {
+		// Convert various formats to YYYY-MM-DD
+		if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+			return dateString; // Already in correct format
+		} else if (dateString.match(/^\d{2}-\d{2}-\d{4}$/)) {
+			// DD-MM-YYYY to YYYY-MM-DD
+			const [day, month, year] = dateString.split('-');
+			return `${year}-${month}-${day}`;
+		} else if (dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+			// DD/MM/YYYY to YYYY-MM-DD
+			const [day, month, year] = dateString.split('/');
+			return `${year}-${month}-${day}`;
+		} else if (dateString.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+			// YYYY/MM/DD to YYYY-MM-DD
+			return dateString.replace(/\//g, '-');
+		} else if (dateString.match(/^\d{8}$/)) {
+			// YYYYMMDD to YYYY-MM-DD
+			return `${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6, 8)}`;
+		}
+		
+		return dateString; // Return as-is if format not recognized
+	}
+
+	getNotePath(date: string): string {
+		// Convert date to filename format
+		const formattedDate = this.formatDate(new Date(date), this.dateFormat);
+		return `${this.dailyNotesPath}/${formattedDate}.md`;
 	}
 
 	async updateTaskCompletion(
