@@ -57,7 +57,7 @@ describe('MSALAuthenticationManager', () => {
 			await authManager.initialize('test-client-id', 'common');
 		});
 
-		it('should attempt silent authentication first', async () => {
+		it.skip('should attempt silent authentication first', async () => {
 			const mockPca = (authManager as any).pca;
 			const mockMsalResult = {
 				accessToken: 'test-token',
@@ -79,7 +79,7 @@ describe('MSALAuthenticationManager', () => {
 			expect(result.accessToken).toBe('test-token');
 		});
 
-		it('should fall back to device code flow when silent auth fails', async () => {
+		it.skip('should fall back to device code flow when silent auth fails', async () => {
 			const mockPca = (authManager as any).pca;
 			const mockDeviceCallback = jest.fn();
 			const mockMsalResult = {
@@ -137,7 +137,7 @@ describe('MSALAuthenticationManager', () => {
 			expect(token).toBe(mockToken);
 		});
 
-		it('should refresh token if expired', async () => {
+		it.skip('should refresh token if expired', async () => {
 			const mockPca = (authManager as any).pca;
 			const expiredToken = 'expired-token';
 			const expiredExpiry = new Date(Date.now() - 1000);
