@@ -198,8 +198,12 @@ export class TodoApiClient {
 
 		try {
 			const accessToken = await this.getAccessToken();
+			
+			// Clean title to ensure no [todo:: tags are included
+			const cleanTitle = title.replace(/\[todo::[a-zA-Z0-9\-]+\]/g, '').trim();
+			
 			const taskData: any = {
-				title: title,
+				title: cleanTitle,
 			};
 
 			if (startDate) {
@@ -228,6 +232,8 @@ export class TodoApiClient {
 			this.logger.info('Task created successfully', {
 				taskId: newTask.id,
 				title: newTask.title,
+				originalTitle: title,
+				cleanTitle: cleanTitle,
 				startDate: startDate
 			});
 
