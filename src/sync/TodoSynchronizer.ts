@@ -88,6 +88,32 @@ export class TodoSynchronizer {
 				count: msftTasks.length,
 				tasks: msftTasks.map(t => ({ id: t.id, title: t.title }))
 			});
+			
+			// Clean up Microsoft Todo task titles if they contain [todo:: tags
+			const listId = this.apiClient.getDefaultListId();
+			if (listId) {
+				for (const task of msftTasks) {
+					if (task.title.includes('[todo::')) {
+						const cleanedTitle = this.cleanTaskTitle(task.title);
+						try {
+							await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
+							this.logger.info('Cleaned Microsoft Todo task title', {
+								taskId: task.id,
+								originalTitle: task.title,
+								cleanedTitle: cleanedTitle
+							});
+							// Update the task object with cleaned title
+							task.title = cleanedTitle;
+						} catch (error) {
+							this.logger.error('Failed to clean Microsoft Todo task title', {
+								taskId: task.id,
+								title: task.title,
+								error
+							});
+						}
+					}
+				}
+			}
 
 			// Find new Microsoft tasks that don't exist in Obsidian
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks);

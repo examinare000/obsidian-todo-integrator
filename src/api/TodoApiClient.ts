@@ -34,6 +34,44 @@ export class TodoApiClient {
 		return this.tokenProvider !== null;
 	}
 
+	async updateTaskTitle(listId: string, taskId: string, newTitle: string): Promise<void> {
+		this.validateInitialization();
+
+		try {
+			const accessToken = await this.getAccessToken();
+			const response = await fetch(GRAPH_ENDPOINTS.TASK(listId, taskId), {
+				method: 'PATCH',
+				headers: {
+					'Authorization': `Bearer ${accessToken}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					title: newTitle,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to update task title: HTTP ${response.status}`);
+			}
+
+			this.logger.info('Task title updated successfully', {
+				listId,
+				taskId,
+				newTitle,
+			});
+
+		} catch (error) {
+			const context: ErrorContext = {
+				component: 'TodoApiClient',
+				method: 'updateTaskTitle',
+				timestamp: new Date().toISOString(),
+				details: { listId, taskId, newTitle, error },
+			};
+			this.logger.error('Failed to update task title', context);
+			throw new Error(`${ERROR_CODES.API_ERROR}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		}
+	}
+
 	async getUserInfo(): Promise<UserInfo> {
 		this.validateInitialization();
 
