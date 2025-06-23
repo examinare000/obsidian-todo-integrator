@@ -171,6 +171,26 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					await this.plugin.updateSetting('dailyNotesPath', value || 'Daily Notes');
 				}));
+
+		new Setting(containerEl)
+			.setName('Date Format')
+			.setDesc('Date format for Daily Note filenames (e.g., YYYY-MM-DD, DD-MM-YYYY, MM-DD-YYYY)')
+			.addText(text => text
+				.setPlaceholder('YYYY-MM-DD')
+				.setValue(this.plugin.settings.dailyNoteDateFormat)
+				.onChange(async (value) => {
+					await this.plugin.updateSetting('dailyNoteDateFormat', value || 'YYYY-MM-DD');
+				}));
+
+		new Setting(containerEl)
+			.setName('Template File')
+			.setDesc('Path to template file for new Daily Notes (optional)')
+			.addText(text => text
+				.setPlaceholder('Templates/Daily Note Template.md')
+				.setValue(this.plugin.settings.dailyNoteTemplate || '')
+				.onChange(async (value) => {
+					await this.plugin.updateSetting('dailyNoteTemplate', value || undefined);
+				}));
 	}
 
 	private renderAdvancedSection(containerEl: HTMLElement): void {
