@@ -37,25 +37,27 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	private renderAuthenticationSection(containerEl: HTMLElement): void {
 		containerEl.createEl('h3', { text: UI_TEXT.SETTINGS.AUTH_SECTION });
 
+		// Information about the plugin using developer's multi-tenant client
+		const infoEl = containerEl.createEl('div', { cls: 'setting-item-description' });
+		infoEl.createEl('p', { 
+			text: 'このプラグインは開発者が提供するマルチテナントAzureクライアントアプリケーションを使用してMicrosoft To Doにアクセスします。認証情報はローカルに保存され、外部には送信されません。'
+		});
+
+		// Advanced Configuration toggle
 		new Setting(containerEl)
-			.setName('Client ID')
-			.setDesc('Azure App Registration Client ID for Microsoft authentication')
-			.addText(text => text
-				.setPlaceholder('Enter your Client ID')
-				.setValue(this.plugin.settings.clientId)
+			.setName('Advanced Configuration')
+			.setDesc('独自のAzure Client IDとTenant IDを使用する場合はONにしてください')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.advancedConfigEnabled)
 				.onChange(async (value) => {
-					await this.plugin.updateSetting('clientId', value);
+					await this.plugin.updateSetting('advancedConfigEnabled', value);
+					this.display(); // Refresh to show/hide advanced settings
 				}));
 
-		new Setting(containerEl)
-			.setName('Tenant ID')
-			.setDesc('Azure Tenant ID (use "common" for personal Microsoft accounts)')
-			.addText(text => text
-				.setPlaceholder('common')
-				.setValue(this.plugin.settings.tenantId)
-				.onChange(async (value) => {
-					await this.plugin.updateSetting('tenantId', value || 'common');
-				}));
+		// Show advanced settings only if enabled
+		if (this.plugin.settings.advancedConfigEnabled) {
+			this.renderAdvancedClientSettings(containerEl);
+		}
 
 		// Authentication status and actions
 		const authStatus = this.plugin.getAuthenticationStatus();
@@ -72,6 +74,43 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 						await this.plugin.authenticateWithMicrosoft();
 					}
 					this.display(); // Refresh the settings display
+				}));
+	}
+
+	private renderAdvancedClientSettings(containerEl: HTMLElement): void {
+		const advancedContainer = containerEl.createEl('div', { cls: 'setting-item-description' });
+		
+		advancedContainer.createEl('h4', { text: 'Azure App Registration設定' });
+		advancedContainer.createEl('p', { 
+			text: '独自のAzure App Registrationを使用する場合は、以下の手順に従ってClient IDとTenant IDを取得してください：'
+		});
+		
+		const stepsList = advancedContainer.createEl('ol');
+		stepsList.createEl('li', { text: 'Azure PortalでApp Registrationを作成' });
+		stepsList.createEl('li', { text: 'Authentication設定でMobile and desktop applicationsプラットフォームを追加' });
+		stepsList.createEl('li', { text: 'Redirect URIに "http://localhost" を追加' });
+		stepsList.createEl('li', { text: 'API Permissionsで "Tasks.ReadWrite" と "User.Read" を追加' });
+		stepsList.createEl('li', { text: 'Application (client) IDをコピーしてClient IDに入力' });
+		stepsList.createEl('li', { text: 'Directory (tenant) IDをコピーしてTenant IDに入力（個人アカウントの場合は "consumers"）' });
+
+		new Setting(containerEl)
+			.setName('Client ID')
+			.setDesc('Azure App Registration Client ID')
+			.addText(text => text
+				.setPlaceholder('Enter your Client ID')
+				.setValue(this.plugin.settings.clientId)
+				.onChange(async (value) => {
+					await this.plugin.updateSetting('clientId', value);
+				}));
+
+		new Setting(containerEl)
+			.setName('Tenant ID')
+			.setDesc('Azure Tenant ID ("consumers" for personal accounts, "organizations" for work accounts)')
+			.addText(text => text
+				.setPlaceholder('consumers')
+				.setValue(this.plugin.settings.tenantId)
+				.onChange(async (value) => {
+					await this.plugin.updateSetting('tenantId', value || 'consumers');
 				}));
 	}
 

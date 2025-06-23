@@ -59,6 +59,7 @@ export class Modal {
 				createEl: jest.fn().mockReturnThis(),
 				appendChild: jest.fn(),
 				setText: jest.fn(),
+				empty: jest.fn(),
 				onclick: null,
 				textContent: props?.text || '',
 				querySelector: jest.fn(),
