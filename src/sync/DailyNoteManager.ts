@@ -11,7 +11,7 @@ import {
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
-import { moment } from 'obsidian';
+// Note: Using native Date formatting to avoid moment dependency issues in tests
 
 export class DailyNoteManager {
 	private app: App;
@@ -35,8 +35,8 @@ export class DailyNoteManager {
 	}
 
 	getTodayNotePath(): string {
-		const today = moment();
-		const dateString = today.format(this.dateFormat);
+		const today = new Date();
+		const dateString = this.formatDate(today, this.dateFormat);
 		return `${this.dailyNotesPath}/${dateString}.md`;
 	}
 
@@ -336,18 +336,18 @@ export class DailyNoteManager {
 	}
 
 	private processTemplate(templateContent: string): string {
-		const today = moment();
+		const today = new Date();
 		
 		// Replace common template variables
 		let processedContent = templateContent
-			.replace(/\{\{date\}\}/g, today.format(this.dateFormat))
-			.replace(/\{\{date:YYYY-MM-DD\}\}/g, today.format('YYYY-MM-DD'))
-			.replace(/\{\{date:DD-MM-YYYY\}\}/g, today.format('DD-MM-YYYY'))
-			.replace(/\{\{date:MM-DD-YYYY\}\}/g, today.format('MM-DD-YYYY'))
-			.replace(/\{\{date:YYYY\/MM\/DD\}\}/g, today.format('YYYY/MM/DD'))
-			.replace(/\{\{title\}\}/g, `Daily Note - ${today.format('MMMM Do, YYYY')}`)
-			.replace(/\{\{time\}\}/g, today.format('HH:mm'))
-			.replace(/\{\{timestamp\}\}/g, today.format('YYYY-MM-DD HH:mm:ss'));
+			.replace(/\{\{date\}\}/g, this.formatDate(today, this.dateFormat))
+			.replace(/\{\{date:YYYY-MM-DD\}\}/g, this.formatDate(today, 'YYYY-MM-DD'))
+			.replace(/\{\{date:DD-MM-YYYY\}\}/g, this.formatDate(today, 'DD-MM-YYYY'))
+			.replace(/\{\{date:MM-DD-YYYY\}\}/g, this.formatDate(today, 'MM-DD-YYYY'))
+			.replace(/\{\{date:YYYY\/MM\/DD\}\}/g, this.formatDate(today, 'YYYY/MM/DD'))
+			.replace(/\{\{title\}\}/g, `Daily Note - ${this.formatDate(today, 'MMMM Do, YYYY')}`)
+			.replace(/\{\{time\}\}/g, this.formatTime(today))
+			.replace(/\{\{timestamp\}\}/g, this.formatTimestamp(today));
 
 		this.logger.debug('Template processed successfully', { 
 			originalLength: templateContent.length,
@@ -358,8 +358,13 @@ export class DailyNoteManager {
 	}
 
 	private generateDefaultDailyNoteContent(): string {
-		const today = moment();
-		const dateString = today.format('dddd, MMMM Do, YYYY');
+		const today = new Date();
+		const dateString = today.toLocaleDateString('en-US', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+		});
 
 		return `# Daily Note - ${dateString}
 
@@ -437,5 +442,48 @@ export class DailyNoteManager {
 			dateFormat, 
 			templatePath: templatePath || 'none' 
 		});
+	}
+
+	private formatDate(date: Date, format: string): string {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+
+		switch (format) {
+			case 'YYYY-MM-DD':
+				return `${year}-${month}-${day}`;
+			case 'DD-MM-YYYY':
+				return `${day}-${month}-${year}`;
+			case 'MM-DD-YYYY':
+				return `${month}-${day}-${year}`;
+			case 'YYYY/MM/DD':
+				return `${year}/${month}/${day}`;
+			case 'DD/MM/YYYY':
+				return `${day}/${month}/${year}`;
+			case 'MM/DD/YYYY':
+				return `${month}/${day}/${year}`;
+			case 'MMMM Do, YYYY':
+				return date.toLocaleDateString('en-US', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+				});
+			default:
+				// Fallback to ISO format
+				return `${year}-${month}-${day}`;
+		}
+	}
+
+	private formatTime(date: Date): string {
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${hours}:${minutes}`;
+	}
+
+	private formatTimestamp(date: Date): string {
+		const dateString = this.formatDate(date, 'YYYY-MM-DD');
+		const timeString = this.formatTime(date);
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${dateString} ${timeString}:${seconds}`;
 	}
 }
