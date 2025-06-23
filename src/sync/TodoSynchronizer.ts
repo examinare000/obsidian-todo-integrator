@@ -17,15 +17,23 @@ export class TodoSynchronizer {
 	private apiClient: TodoApiClient;
 	private dailyNoteManager: DailyNoteManager;
 	private logger: Logger;
+	private taskSectionHeading?: string;
 
 	constructor(
 		apiClient: TodoApiClient,
 		dailyNoteManager: DailyNoteManager,
-		logger: Logger
+		logger: Logger,
+		taskSectionHeading?: string
 	) {
 		this.apiClient = apiClient;
 		this.dailyNoteManager = dailyNoteManager;
 		this.logger = logger;
+		this.taskSectionHeading = taskSectionHeading;
+	}
+
+	setTaskSectionHeading(taskSectionHeading: string): void {
+		this.taskSectionHeading = taskSectionHeading;
+		this.logger.debug('Task section heading updated', { taskSectionHeading });
 	}
 
 	async performFullSync(): Promise<SyncResult> {
@@ -72,7 +80,7 @@ export class TodoSynchronizer {
 			// Get tasks from both sources
 			const [msftTasks, dailyTasks] = await Promise.all([
 				this.apiClient.getTasks(),
-				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath()),
+				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath(), this.taskSectionHeading),
 			]);
 
 			// Find new Microsoft tasks that don't exist in Obsidian
@@ -86,7 +94,8 @@ export class TodoSynchronizer {
 					await this.dailyNoteManager.addTaskToTodoSection(
 						todayPath,
 						task.title,
-						task.id
+						task.id,
+						this.taskSectionHeading
 					);
 					added++;
 					this.logger.debug('Added Microsoft task to Obsidian', { 
@@ -123,7 +132,8 @@ export class TodoSynchronizer {
 		try {
 			// Get daily note tasks
 			const dailyTasks = await this.dailyNoteManager.getDailyNoteTasks(
-				this.dailyNoteManager.getTodayNotePath()
+				this.dailyNoteManager.getTodayNotePath(),
+				this.taskSectionHeading
 			);
 
 			// Find new Obsidian tasks (those without todoId)
@@ -179,7 +189,7 @@ export class TodoSynchronizer {
 		try {
 			const [msftTasks, dailyTasks] = await Promise.all([
 				this.apiClient.getTasks(),
-				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath()),
+				this.dailyNoteManager.getDailyNoteTasks(this.dailyNoteManager.getTodayNotePath(), this.taskSectionHeading),
 			]);
 
 			// Create lookup maps

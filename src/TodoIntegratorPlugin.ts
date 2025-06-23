@@ -12,6 +12,7 @@ import { TodoSynchronizer } from './sync/TodoSynchronizer';
 import { ErrorHandler } from './utils/ErrorHandler';
 import { PluginSettings } from './settings/PluginSettings';
 import { ObsidianTodoParser } from './parser/ObsidianTodoParser';
+import { DailyNotesDetector } from './utils/DailyNotesDetector';
 import {
 	TodoIntegratorSettings,
 	AuthenticationResult,
@@ -35,6 +36,7 @@ export class TodoIntegratorPlugin extends Plugin {
 	errorHandler: ErrorHandler;
 	pluginSettings: PluginSettings;
 	todoParser: ObsidianTodoParser;
+	dailyNotesDetector: DailyNotesDetector;
 	private syncInterval: number | null = null;
 	private currentAuthModal: AuthenticationModal | null = null;
 
@@ -53,6 +55,9 @@ export class TodoIntegratorPlugin extends Plugin {
 			() => this.loadData(),
 			(data) => this.saveData(data)
 		);
+
+		// Initialize Daily Notes detector
+		this.dailyNotesDetector = new DailyNotesDetector(this.app, this.logger);
 
 		// Load settings
 		await this.loadSettings();
@@ -128,7 +133,12 @@ export class TodoIntegratorPlugin extends Plugin {
 			this.settings?.dailyNoteDateFormat || DEFAULT_SETTINGS.dailyNoteDateFormat,
 			this.settings?.dailyNoteTemplate
 		);
-		this.synchronizer = new TodoSynchronizer(this.apiClient, this.dailyNoteManager, this.logger);
+		this.synchronizer = new TodoSynchronizer(
+			this.apiClient, 
+			this.dailyNoteManager, 
+			this.logger,
+			this.settings?.taskSectionHeading || DEFAULT_SETTINGS.taskSectionHeading
+		);
 	}
 
 	private addCommands(): void {
@@ -162,6 +172,15 @@ export class TodoIntegratorPlugin extends Plugin {
 				const loadedSettings = await this.loadData();
 				this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
 			}
+
+			// Initialize DailyNotesDetector if not available yet
+			if (!this.dailyNotesDetector) {
+				this.dailyNotesDetector = new DailyNotesDetector(this.app, this.logger);
+			}
+
+			// Apply Daily Notes plugin defaults if user hasn't manually set values
+			await this.applyDailyNotesDefaults();
+
 			this.logger?.debug('Settings loaded successfully', { settings: this.settings });
 		} catch (error) {
 			this.logger?.error('Failed to load settings', { error });
@@ -180,6 +199,80 @@ export class TodoIntegratorPlugin extends Plugin {
 		} catch (error) {
 			this.logger?.error('Failed to save settings', { error });
 			throw error;
+		}
+	}
+
+	private async applyDailyNotesDefaults(): Promise<void> {
+		// Skip if Daily Notes detector is not available yet
+		if (!this.dailyNotesDetector) {
+			this.logger.debug('DailyNotesDetector not available, skipping defaults application');
+			return;
+		}
+
+		try {
+			const dailyNotesDefaults = await this.dailyNotesDetector.detectDailyNotesDefaults();
+			let settingsChanged = false;
+
+			// Initialize inheritance flags if they're undefined (first time setup)
+			if (this.settings._userSetDailyNotesPath === undefined) {
+				this.settings._userSetDailyNotesPath = false;
+				settingsChanged = true;
+			}
+			if (this.settings._userSetDailyNoteDateFormat === undefined) {
+				this.settings._userSetDailyNoteDateFormat = false;
+				settingsChanged = true;
+			}
+			if (this.settings._userSetDailyNoteTemplate === undefined) {
+				this.settings._userSetDailyNoteTemplate = false;
+				settingsChanged = true;
+			}
+
+			// Apply Daily Notes path if user hasn't set it manually
+			if (!this.settings._userSetDailyNotesPath) {
+				if (this.settings.dailyNotesPath !== dailyNotesDefaults.folder) {
+					this.settings.dailyNotesPath = dailyNotesDefaults.folder;
+					settingsChanged = true;
+					this.logger.info('Inherited Daily Notes folder from plugin', {
+						folder: dailyNotesDefaults.folder
+					});
+				}
+			}
+
+			// Apply Daily Notes date format if user hasn't set it manually
+			if (!this.settings._userSetDailyNoteDateFormat) {
+				if (this.settings.dailyNoteDateFormat !== dailyNotesDefaults.dateFormat) {
+					this.settings.dailyNoteDateFormat = dailyNotesDefaults.dateFormat;
+					settingsChanged = true;
+					this.logger.info('Inherited Daily Notes date format from plugin', {
+						dateFormat: dailyNotesDefaults.dateFormat
+					});
+				}
+			}
+
+			// Apply Daily Notes template if user hasn't set it manually
+			if (!this.settings._userSetDailyNoteTemplate && dailyNotesDefaults.template) {
+				if (this.settings.dailyNoteTemplate !== dailyNotesDefaults.template) {
+					this.settings.dailyNoteTemplate = dailyNotesDefaults.template;
+					settingsChanged = true;
+					this.logger.info('Inherited Daily Notes template from plugin', {
+						template: dailyNotesDefaults.template
+					});
+				}
+			}
+
+			// Save settings if any changes were made
+			if (settingsChanged) {
+				await this.saveSettings();
+			}
+
+			this.logger.debug('Daily Notes defaults application completed', {
+				userSetPath: this.settings._userSetDailyNotesPath,
+				userSetFormat: this.settings._userSetDailyNoteDateFormat,
+				userSetTemplate: this.settings._userSetDailyNoteTemplate
+			});
+
+		} catch (error) {
+			this.logger.error('Failed to apply Daily Notes defaults', { error });
 		}
 	}
 
@@ -353,6 +446,9 @@ export class TodoIntegratorPlugin extends Plugin {
 				this.settings.dailyNoteDateFormat,
 				this.settings.dailyNoteTemplate
 			);
+			
+			// Update synchronizer task section heading if changed
+			this.synchronizer.setTaskSectionHeading(this.settings.taskSectionHeading);
 			
 			// Perform full synchronization
 			return await this.synchronizer.performFullSync();

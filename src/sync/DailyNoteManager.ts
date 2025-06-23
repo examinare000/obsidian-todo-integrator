@@ -72,7 +72,7 @@ export class DailyNoteManager {
 		}
 	}
 
-	async findOrCreateTodoSection(filePath: string): Promise<number> {
+	async findOrCreateTodoSection(filePath: string, sectionHeader?: string): Promise<number> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -82,24 +82,27 @@ export class DailyNoteManager {
 			const content = await this.app.vault.read(file);
 			const lines = content.split('\n');
 
+			// Use provided section header or fallback to default
+			const targetHeader = sectionHeader || TODO_SECTION_HEADER;
+
 			// Look for existing Todo section
 			for (let i = 0; i < lines.length; i++) {
-				if (lines[i].trim() === TODO_SECTION_HEADER) {
-					this.logger.debug('Found existing Todo section', { filePath, lineNumber: i });
+				if (lines[i].trim() === targetHeader.trim()) {
+					this.logger.debug('Found existing Todo section', { filePath, lineNumber: i, header: targetHeader });
 					return i;
 				}
 			}
 
 			// Todo section not found, create it
-			this.logger.info('Creating Todo section', { filePath });
+			this.logger.info('Creating Todo section', { filePath, header: targetHeader });
 			const insertionPoint = this.findTodoSectionInsertionPoint(lines);
 			
 			// Insert Todo section
-			lines.splice(insertionPoint, 0, TODO_SECTION_HEADER, '');
+			lines.splice(insertionPoint, 0, targetHeader, '');
 			const newContent = lines.join('\n');
 			
 			await this.app.vault.modify(file, newContent);
-			this.logger.debug('Todo section created', { filePath, lineNumber: insertionPoint });
+			this.logger.debug('Todo section created', { filePath, lineNumber: insertionPoint, header: targetHeader });
 			
 			return insertionPoint;
 
@@ -108,14 +111,14 @@ export class DailyNoteManager {
 				component: 'DailyNoteManager',
 				method: 'findOrCreateTodoSection',
 				timestamp: new Date().toISOString(),
-				details: { filePath, error },
+				details: { filePath, sectionHeader, error },
 			};
 			this.logger.error('Failed to find or create Todo section', context);
 			throw error;
 		}
 	}
 
-	async addTaskToTodoSection(filePath: string, taskTitle: string, todoId?: string): Promise<void> {
+	async addTaskToTodoSection(filePath: string, taskTitle: string, todoId?: string, taskSectionHeading?: string): Promise<void> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -125,8 +128,11 @@ export class DailyNoteManager {
 			const content = await this.app.vault.read(file);
 			const lines = content.split('\n');
 
+			// Use provided task section heading or fallback to default
+			const sectionHeader = taskSectionHeading || TODO_SECTION_HEADER;
+
 			// Find Todo section
-			const todoSectionLine = await this.findOrCreateTodoSection(filePath);
+			const todoSectionLine = await this.findOrCreateTodoSection(filePath, sectionHeader);
 			
 			// Find insertion point within Todo section
 			let insertionLine = todoSectionLine + 1;
@@ -136,7 +142,7 @@ export class DailyNoteManager {
 				const line = lines[i].trim();
 				
 				// Stop if we hit another section header
-				if (line.startsWith('##') && line !== TODO_SECTION_HEADER) {
+				if (line.startsWith('#') && line !== sectionHeader) {
 					break;
 				}
 				
@@ -165,7 +171,8 @@ export class DailyNoteManager {
 				filePath, 
 				taskTitle, 
 				todoId, 
-				lineNumber: insertionLine 
+				lineNumber: insertionLine,
+				sectionHeader
 			});
 
 		} catch (error) {
@@ -173,14 +180,14 @@ export class DailyNoteManager {
 				component: 'DailyNoteManager',
 				method: 'addTaskToTodoSection',
 				timestamp: new Date().toISOString(),
-				details: { filePath, taskTitle, todoId, error },
+				details: { filePath, taskTitle, todoId, taskSectionHeading, error },
 			};
 			this.logger.error('Failed to add task to Todo section', context);
 			throw error;
 		}
 	}
 
-	async getDailyNoteTasks(filePath: string): Promise<DailyNoteTask[]> {
+	async getDailyNoteTasks(filePath: string, taskSectionHeading?: string): Promise<DailyNoteTask[]> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -192,15 +199,56 @@ export class DailyNoteManager {
 			const lines = content.split('\n');
 			const tasks: DailyNoteTask[] = [];
 
-			for (let i = 0; i < lines.length; i++) {
+			// If taskSectionHeading is provided, find the section boundaries
+			let sectionStartIndex = -1;
+			let sectionEndIndex = lines.length;
+
+			if (taskSectionHeading) {
+				for (let i = 0; i < lines.length; i++) {
+					const line = lines[i].trim();
+					if (line === taskSectionHeading.trim()) {
+						sectionStartIndex = i;
+						// Find the end of this section (next heading of same or higher level)
+						const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
+						for (let j = i + 1; j < lines.length; j++) {
+							const nextLine = lines[j].trim();
+							const nextHeadingMatch = nextLine.match(/^(#+)\s/);
+							if (nextHeadingMatch && nextHeadingMatch[1].length <= currentLevel) {
+								sectionEndIndex = j;
+								break;
+							}
+						}
+						break;
+					}
+				}
+
+				// If section not found, return empty array
+				if (sectionStartIndex === -1) {
+					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
+					return [];
+				}
+			}
+
+			// Parse tasks only within the specified section (or entire file if no section specified)
+			const startIndex = taskSectionHeading ? sectionStartIndex + 1 : 0;
+			const endIndex = taskSectionHeading ? sectionEndIndex : lines.length;
+
+			for (let i = startIndex; i < endIndex; i++) {
 				const line = lines[i];
 				const taskMatch = line.match(TASK_REGEX);
 
 				if (taskMatch) {
 					const [, indent, completed, title, todoId, completionDate] = taskMatch;
 					
+					// Skip empty or whitespace-only tasks
+					const cleanTitle = title.trim();
+					if (!cleanTitle || cleanTitle.length === 0) {
+						this.logger.debug(`Skipping empty task at line ${i + 1} in ${filePath}`);
+						continue;
+					}
+					
 					const task: DailyNoteTask = {
-						title: title.trim(),
+						title: cleanTitle,
 						completed: completed === 'x',
 						lineNumber: i,
 						todoId: todoId || undefined,
@@ -211,9 +259,11 @@ export class DailyNoteManager {
 				}
 			}
 
+			const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
 			this.logger.debug('Parsed daily note tasks', { 
 				filePath, 
-				taskCount: tasks.length 
+				taskCount: tasks.length,
+				section: sectionInfo
 			});
 
 			return tasks;
@@ -223,7 +273,7 @@ export class DailyNoteManager {
 				component: 'DailyNoteManager',
 				method: 'getDailyNoteTasks',
 				timestamp: new Date().toISOString(),
-				details: { filePath, error },
+				details: { filePath, taskSectionHeading, error },
 			};
 			this.logger.error('Failed to get daily note tasks', context);
 			throw error;

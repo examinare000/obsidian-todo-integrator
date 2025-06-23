@@ -17,7 +17,7 @@ export class ObsidianTodoParser {
 		this.errorHandler = errorHandler;
 	}
 
-	async parseFileTodos(filePath: string): Promise<ObsidianTask[]> {
+	async parseFileTodos(filePath: string, taskSectionHeading?: string): Promise<ObsidianTask[]> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -28,12 +28,53 @@ export class ObsidianTodoParser {
 			const lines = content.split('\n');
 			const tasks: ObsidianTask[] = [];
 
-			for (let i = 0; i < lines.length; i++) {
+			// If taskSectionHeading is provided, find the section boundaries
+			let sectionStartIndex = -1;
+			let sectionEndIndex = lines.length;
+
+			if (taskSectionHeading) {
+				for (let i = 0; i < lines.length; i++) {
+					const line = lines[i].trim();
+					if (line === taskSectionHeading.trim()) {
+						sectionStartIndex = i;
+						// Find the end of this section (next heading of same or higher level)
+						const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
+						for (let j = i + 1; j < lines.length; j++) {
+							const nextLine = lines[j].trim();
+							const nextHeadingMatch = nextLine.match(/^(#+)\s/);
+							if (nextHeadingMatch && nextHeadingMatch[1].length <= currentLevel) {
+								sectionEndIndex = j;
+								break;
+							}
+						}
+						break;
+					}
+				}
+
+				// If section not found, return empty array
+				if (sectionStartIndex === -1) {
+					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
+					return [];
+				}
+			}
+
+			// Parse tasks only within the specified section (or entire file if no section specified)
+			const startIndex = taskSectionHeading ? sectionStartIndex + 1 : 0;
+			const endIndex = taskSectionHeading ? sectionEndIndex : lines.length;
+
+			for (let i = startIndex; i < endIndex; i++) {
 				const line = lines[i];
 				const checkboxMatch = line.match(/^(\s*)-\s*\[([x\s])\]\s*(.+)/);
 				
 				if (checkboxMatch) {
-					const [, indent, checked, taskText] = checkboxMatch;
+					// Skip empty or whitespace-only tasks
+					const taskText = checkboxMatch[3].trim();
+					if (!taskText || taskText.length === 0) {
+						this.logger.debug(`Skipping empty task at line ${i + 1} in ${filePath}`);
+						continue;
+					}
+
+					const [, indent, checked] = checkboxMatch;
 					const isCompleted = checked.toLowerCase() === 'x';
 					
 					// Extract completion date from DataView format
@@ -51,6 +92,12 @@ export class ObsidianTodoParser {
 					// Extract clean title
 					const title = this.extractTaskTitle(taskText);
 
+					// Skip if title is empty after cleaning
+					if (!title || title.trim().length === 0) {
+						this.logger.debug(`Skipping task with empty title at line ${i + 1} in ${filePath}`);
+						continue;
+					}
+
 					const task: ObsidianTask = {
 						file: filePath,
 						line: i,
@@ -66,7 +113,8 @@ export class ObsidianTodoParser {
 				}
 			}
 
-			this.logger.debug(`Parsed ${tasks.length} tasks from ${filePath}`);
+			const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
+			this.logger.debug(`Parsed ${tasks.length} tasks from ${filePath}${sectionInfo}`);
 			return tasks;
 		} catch (error) {
 			const errorMessage = this.errorHandler.handleFileError(error);

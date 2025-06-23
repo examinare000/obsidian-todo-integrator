@@ -162,34 +162,80 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	private renderDailyNotesSection(containerEl: HTMLElement): void {
 		containerEl.createEl('h3', { text: UI_TEXT.SETTINGS.DAILY_NOTES_SECTION });
 
+		// Add information about inheritance
+		const infoEl = containerEl.createEl('div', { cls: 'setting-item-description' });
+		infoEl.createEl('p', { 
+			text: 'Daily Notesプラグインがインストールされている場合、デフォルト値が自動的に継承されます。手動で変更すると継承を無効化し、カスタム値が優先されます。'
+		});
+
+		// Daily Notes Path setting
+		const pathInheritanceStatus = this.plugin.settings._userSetDailyNotesPath ? 
+			'🔧 カスタム設定' : '🔗 Daily Notesプラグインから継承';
 		new Setting(containerEl)
 			.setName('Daily Notes Path')
-			.setDesc('Folder path where Daily Notes are stored')
+			.setDesc(`Folder path where Daily Notes are stored (${pathInheritanceStatus})`)
 			.addText(text => text
 				.setPlaceholder('Daily Notes')
 				.setValue(this.plugin.settings.dailyNotesPath)
 				.onChange(async (value) => {
 					await this.plugin.updateSetting('dailyNotesPath', value || 'Daily Notes');
+					this.display(); // Refresh to update inheritance indicators
 				}));
 
+		// Date Format setting
+		const formatInheritanceStatus = this.plugin.settings._userSetDailyNoteDateFormat ? 
+			'🔧 カスタム設定' : '🔗 Daily Notesプラグインから継承';
 		new Setting(containerEl)
 			.setName('Date Format')
-			.setDesc('Date format for Daily Note filenames (e.g., YYYY-MM-DD, DD-MM-YYYY, MM-DD-YYYY)')
+			.setDesc(`Date format for Daily Note filenames (${formatInheritanceStatus})`)
 			.addText(text => text
 				.setPlaceholder('YYYY-MM-DD')
 				.setValue(this.plugin.settings.dailyNoteDateFormat)
 				.onChange(async (value) => {
 					await this.plugin.updateSetting('dailyNoteDateFormat', value || 'YYYY-MM-DD');
+					this.display(); // Refresh to update inheritance indicators
 				}));
 
+		// Template File setting
+		const templateInheritanceStatus = this.plugin.settings._userSetDailyNoteTemplate ? 
+			'🔧 カスタム設定' : '🔗 Daily Notesプラグインから継承';
 		new Setting(containerEl)
 			.setName('Template File')
-			.setDesc('Path to template file for new Daily Notes (optional)')
+			.setDesc(`Path to template file for new Daily Notes (${templateInheritanceStatus})`)
 			.addText(text => text
 				.setPlaceholder('Templates/Daily Note Template.md')
 				.setValue(this.plugin.settings.dailyNoteTemplate || '')
 				.onChange(async (value) => {
 					await this.plugin.updateSetting('dailyNoteTemplate', value || undefined);
+					this.display(); // Refresh to update inheritance indicators
+				}));
+
+		// Task Section Heading setting
+		new Setting(containerEl)
+			.setName('Task Section Heading')
+			.setDesc('Heading name under which tasks will be managed (e.g., "# Tasks", "## ToDo")')
+			.addText(text => text
+				.setPlaceholder('# Tasks')
+				.setValue(this.plugin.settings.taskSectionHeading)
+				.onChange(async (value) => {
+					await this.plugin.updateSetting('taskSectionHeading', value || '# Tasks');
+				}));
+
+		// Reset to defaults button
+		new Setting(containerEl)
+			.setName('Reset to Daily Notes Defaults')
+			.setDesc('Clear custom settings and re-inherit from Daily Notes plugin')
+			.addButton(button => button
+				.setButtonText('Reset All')
+				.onClick(async () => {
+					// Clear user-set flags to re-enable inheritance
+					this.plugin.settings._userSetDailyNotesPath = false;
+					this.plugin.settings._userSetDailyNoteDateFormat = false;
+					this.plugin.settings._userSetDailyNoteTemplate = false;
+					
+					// Re-apply Daily Notes defaults
+					await this.plugin.loadSettings();
+					this.display(); // Refresh the UI
 				}));
 	}
 
