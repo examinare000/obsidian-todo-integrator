@@ -116,6 +116,7 @@ export class PathValidator {
 
 	/**
 	 * Normalize path by removing leading/trailing slashes and handling empty paths
+	 * Also validates against path traversal attacks
 	 */
 	private normalizePath(path: string): string {
 		if (!path) return '';
@@ -125,6 +126,16 @@ export class PathValidator {
 		
 		// Handle root case
 		if (normalized === '') return '';
+		
+		// Security check: prevent path traversal attacks
+		if (normalized.includes('..') || normalized.includes('\\')) {
+			throw new Error('Invalid path: Path traversal attempt detected');
+		}
+		
+		// Additional security: ensure path doesn't contain dangerous characters
+		if (/[<>:"|?*]/.test(normalized)) {
+			throw new Error('Invalid path: Contains forbidden characters');
+		}
 		
 		return normalized;
 	}
