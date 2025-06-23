@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = {
 	autoSyncEnabled: false,
 	syncIntervalMinutes: PLUGIN_CONFIG.DEFAULT_SYNC_INTERVAL_MINUTES,
 	logLevel: 'info' as const,
+	advancedConfigEnabled: false,
 };
 
 export const MSAL_CONFIG = {
