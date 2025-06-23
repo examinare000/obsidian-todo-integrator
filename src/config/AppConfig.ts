@@ -38,6 +38,16 @@ export const DEV_CONFIG = {
 
 // Export the configuration to use based on environment
 export const getAzureConfig = () => {
+    // Use test environment settings if in test mode
+    if (process.env.NODE_ENV === 'test') {
+        return {
+            CLIENT_ID: '',
+            TENANT_ID: 'common',
+            SCOPES: AZURE_APP_CONFIG.SCOPES,
+            AUTHORITY: 'https://login.microsoftonline.com/common'
+        };
+    }
+    
     // Use development config if environment variables are set
     if (process.env.NODE_ENV === 'development' && process.env.AZURE_CLIENT_ID) {
         return {

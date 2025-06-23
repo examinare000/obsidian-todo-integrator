@@ -92,5 +92,6 @@ describe('Full Integration Tests - Basic', () => {
 		expect(plugin.settings.clientId).toBe('test-client-id');
 		expect(plugin.settings.todoListName).toBe('Test List');
 		expect(plugin.settings.tenantId).toBe('common'); // default value
+		expect(plugin.settings.dailyNotesPath).toBe('Daily Notes');
 	});
 });

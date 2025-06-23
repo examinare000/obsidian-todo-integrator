@@ -85,6 +85,6 @@ export const DATETIME_FORMAT = 'YYYY-MM-DD HH:mm';
 export const TODO_SECTION_HEADER = '## ToDo';
 export const COMPLETED_SECTION_HEADER = '## Completed';
 
-export const TASK_REGEX = /^- \[([ x])\] (.+?)(?:\s+\[todo::([a-zA-Z0-9\-]+)\])?(?:\s+✅\s+(\d{4}-\d{2}-\d{2}))?$/;
+export const TASK_REGEX = /^(\s*)-\s*\[([ x])\]\s*(.+?)(?:\s+\[todo::([a-zA-Z0-9\-]+)\])?(?:\s*✅\s*(\d{4}-\d{2}-\d{2}))?$/;
 export const TODO_ID_REGEX = /\[todo::([a-zA-Z0-9\-]+)\]/;
 export const COMPLETION_DATE_REGEX = /✅\s+(\d{4}-\d{2}-\d{2})/;

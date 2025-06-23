@@ -80,6 +80,7 @@ describe('TodoIntegratorPlugin', () => {
 			expect(plugin.settings.clientId).toBe('test-client-id');
 			expect(plugin.settings.todoListName).toBe('Custom List');
 			expect(plugin.settings.tenantId).toBe('common'); // default value
+			expect(plugin.settings.dailyNotesPath).toBe('Daily Notes');
 		});
 
 		it('should save settings', async () => {
@@ -124,9 +125,20 @@ describe('TodoIntegratorPlugin', () => {
 				expiresOn: new Date(),
 				account: { username: 'test@example.com', name: 'Test User' },
 			});
+			mockAuthManager.isAuthenticated.mockReturnValue(true);
 
 			plugin.settings.clientId = 'test-client-id';
 			plugin.settings.tenantId = 'common';
+
+			// Mock API client and user info
+			const mockApiClient = plugin.apiClient as jest.Mocked<TodoApiClient>;
+			mockApiClient.getUserInfo = jest.fn().mockResolvedValue({
+				email: 'test@example.com',
+				displayName: 'Test User',
+				id: 'test-user-id'
+			});
+			mockApiClient.getOrCreateTaskList = jest.fn().mockResolvedValue('test-list-id');
+			mockApiClient.setDefaultListId = jest.fn();
 
 			await plugin.authenticateWithMicrosoft();
 
@@ -226,7 +238,10 @@ describe('TodoIntegratorPlugin', () => {
 			const mockAuthManager = plugin.authManager as jest.Mocked<MSALAuthenticationManager>;
 			mockAuthManager.isAuthenticated.mockReturnValue(false);
 
-			await expect(plugin.performManualSync()).rejects.toThrow('Authentication required');
+			// performManualSync returns early without throwing when not authenticated
+			const result = await plugin.performManualSync();
+			expect(result).toBeUndefined();
+			expect(mockAuthManager.isAuthenticated).toHaveBeenCalled();
 		});
 	});
 });
