@@ -25,6 +25,7 @@ describe('TodoSynchronizer', () => {
 		mockApiClient = {
 			getTasks: jest.fn(),
 			createTask: jest.fn(),
+			createTaskWithStartDate: jest.fn(),
 			completeTask: jest.fn(),
 			getDefaultListId: jest.fn(),
 		} as any;
@@ -32,9 +33,11 @@ describe('TodoSynchronizer', () => {
 		mockDailyNoteManager = {
 			ensureTodayNoteExists: jest.fn(),
 			getDailyNoteTasks: jest.fn(),
+			getAllDailyNoteTasks: jest.fn(),
 			addTaskToTodoSection: jest.fn(),
 			updateTaskCompletion: jest.fn(),
 			getTodayNotePath: jest.fn(),
+			getNotePath: jest.fn(),
 		} as any;
 
 		synchronizer = new TodoSynchronizer(
@@ -117,8 +120,8 @@ describe('TodoSynchronizer', () => {
 			const dailyTasks: DailyNoteTask[] = [];
 
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
-			mockDailyNoteManager.getTodayNotePath.mockReturnValue('Daily Notes/2024-01-15.md');
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getNotePath.mockReturnValue('Daily Notes/2024-01-01.md');
 			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
 
 			const result = await synchronizer.syncMsftToObsidian();
@@ -126,7 +129,7 @@ describe('TodoSynchronizer', () => {
 			expect(result.added).toBe(1);
 			expect(result.errors).toHaveLength(0);
 			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
-				'Daily Notes/2024-01-15.md',
+				'Daily Notes/2024-01-01.md',
 				'New Microsoft Task',
 				'msft-1',
 				undefined
@@ -153,7 +156,7 @@ describe('TodoSynchronizer', () => {
 			];
 
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 
 			const result = await synchronizer.syncMsftToObsidian();
 
@@ -169,6 +172,8 @@ describe('TodoSynchronizer', () => {
 					title: 'New Obsidian Task',
 					completed: false,
 					lineNumber: 5,
+					filePath: 'Daily Notes/2024-01-15.md',
+					startDate: '2024-01-15',
 				},
 			];
 
@@ -180,18 +185,18 @@ describe('TodoSynchronizer', () => {
 				createdDateTime: '2024-01-15T00:00:00Z',
 			};
 
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
 			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
-			mockApiClient.createTask.mockResolvedValue(createdTask);
-			mockDailyNoteManager.getTodayNotePath.mockReturnValue('Daily Notes/2024-01-15.md');
+			mockApiClient.createTaskWithStartDate.mockResolvedValue(createdTask);
 
 			const result = await synchronizer.syncObsidianToMsft();
 
 			expect(result.added).toBe(1);
-			expect(mockApiClient.createTask).toHaveBeenCalledWith(
+			expect(mockApiClient.createTaskWithStartDate).toHaveBeenCalledWith(
 				'default-list-id',
-				'New Obsidian Task'
+				'New Obsidian Task',
+				'2024-01-15'
 			);
 		});
 
@@ -205,12 +210,12 @@ describe('TodoSynchronizer', () => {
 				},
 			];
 
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 
 			const result = await synchronizer.syncObsidianToMsft();
 
 			expect(result.added).toBe(0);
-			expect(mockApiClient.createTask).not.toHaveBeenCalled();
+			expect(mockApiClient.createTaskWithStartDate).not.toHaveBeenCalled();
 		});
 	});
 
@@ -232,12 +237,12 @@ describe('TodoSynchronizer', () => {
 					completed: false,
 					lineNumber: 5,
 					todoId: 'msft-1',
+					filePath: 'Daily Notes/2024-01-15.md',
 				},
 			];
 
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
-			mockDailyNoteManager.getTodayNotePath.mockReturnValue('Daily Notes/2024-01-15.md');
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockDailyNoteManager.updateTaskCompletion.mockResolvedValue(undefined);
 
 			const result = await synchronizer.syncCompletions();
@@ -257,8 +262,9 @@ describe('TodoSynchronizer', () => {
 					title: 'Completed Task',
 					completed: true,
 					lineNumber: 5,
-					todoId: 'msft-1',
 					completionDate: '2024-01-15',
+					startDate: '2024-01-01',
+					filePath: 'Daily Notes/2024-01-01.md',
 				},
 			];
 
@@ -271,7 +277,7 @@ describe('TodoSynchronizer', () => {
 				},
 			];
 
-			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
 			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
 			mockApiClient.completeTask.mockResolvedValue(undefined);
