@@ -124,7 +124,9 @@ export class TodoIntegratorPlugin extends Plugin {
 		this.dailyNoteManager = new DailyNoteManager(
 			this.app, 
 			this.logger, 
-			this.settings?.dailyNotesPath || DEFAULT_SETTINGS.dailyNotesPath
+			this.settings?.dailyNotesPath || DEFAULT_SETTINGS.dailyNotesPath,
+			this.settings?.dailyNoteDateFormat || DEFAULT_SETTINGS.dailyNoteDateFormat,
+			this.settings?.dailyNoteTemplate
 		);
 		this.synchronizer = new TodoSynchronizer(this.apiClient, this.dailyNoteManager, this.logger);
 	}
@@ -345,8 +347,12 @@ export class TodoIntegratorPlugin extends Plugin {
 		this.logger.info('Performing synchronization');
 		
 		try {
-			// Update daily note manager path if settings changed
-			this.dailyNoteManager.setDailyNotesPath(this.settings.dailyNotesPath);
+			// Update daily note manager settings if changed
+			this.dailyNoteManager.updateSettings(
+				this.settings.dailyNotesPath,
+				this.settings.dailyNoteDateFormat,
+				this.settings.dailyNoteTemplate
+			);
 			
 			// Perform full synchronization
 			return await this.synchronizer.performFullSync();
