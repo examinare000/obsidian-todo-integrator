@@ -1,15 +1,18 @@
 // Settings Tab for ToDo Integrator Plugin
 
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Modal, TextComponent } from 'obsidian';
 import { TodoIntegratorPlugin } from '../TodoIntegratorPlugin';
 import { UI_TEXT } from '../constants';
+import { PathValidator, ValidationResult } from '../utils/pathValidation';
 
 export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	plugin: TodoIntegratorPlugin;
+	private pathValidator: PathValidator;
 
 	constructor(app: App, plugin: TodoIntegratorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.pathValidator = new PathValidator(app);
 	}
 
 	display(): void {
@@ -171,16 +174,51 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 		// Daily Notes Path setting
 		const pathInheritanceStatus = this.plugin.settings._userSetDailyNotesPath ? 
 			'🔧 カスタム設定' : '🔗 Daily Notesプラグインから継承';
-		new Setting(containerEl)
+		const pathSetting = new Setting(containerEl)
 			.setName('Daily Notes Path')
 			.setDesc(`Folder path where Daily Notes are stored (${pathInheritanceStatus})`)
 			.addText(text => text
 				.setPlaceholder('Daily Notes')
 				.setValue(this.plugin.settings.dailyNotesPath)
 				.onChange(async (value) => {
-					await this.plugin.updateSetting('dailyNotesPath', value || 'Daily Notes');
-					this.display(); // Refresh to update inheritance indicators
+					const pathValue = value || 'Daily Notes';
+					const validation = this.pathValidator.validateFolderPath(pathValue);
+					
+					if (validation.isValid) {
+						await this.plugin.updateSetting('dailyNotesPath', pathValue);
+						this.clearValidationMessage(pathSetting.settingEl);
+						if (validation.warningMessage) {
+							this.showValidationMessage(pathSetting.settingEl, validation.warningMessage, 'warning');
+						}
+						this.display(); // Refresh to update inheritance indicators
+					} else {
+						this.showValidationMessage(pathSetting.settingEl, validation.error!, 'error');
+					}
+				}))
+			.addButton(button => button
+				.setButtonText('作成')
+				.setTooltip('フォルダが存在しない場合は作成します')
+				.onClick(async () => {
+					const pathValue = this.plugin.settings.dailyNotesPath;
+					const result = await this.pathValidator.createFolderIfNeeded(pathValue);
+					
+					if (result.isValid) {
+						this.clearValidationMessage(pathSetting.settingEl);
+						if (result.warningMessage) {
+							this.showValidationMessage(pathSetting.settingEl, result.warningMessage, 'success');
+						}
+						// Re-validate after creation
+						setTimeout(() => this.display(), 100);
+					} else {
+						this.showValidationMessage(pathSetting.settingEl, result.error!, 'error');
+					}
 				}));
+		
+		// Initial validation for Daily Notes Path
+		const initialPathValidation = this.pathValidator.validateFolderPath(this.plugin.settings.dailyNotesPath);
+		if (!initialPathValidation.isValid) {
+			this.showValidationMessage(pathSetting.settingEl, initialPathValidation.error!, 'error');
+		}
 
 		// Date Format setting
 		const formatInheritanceStatus = this.plugin.settings._userSetDailyNoteDateFormat ? 
@@ -199,16 +237,60 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 		// Template File setting
 		const templateInheritanceStatus = this.plugin.settings._userSetDailyNoteTemplate ? 
 			'🔧 カスタム設定' : '🔗 Daily Notesプラグインから継承';
-		new Setting(containerEl)
+		let templateTextComponent: TextComponent;
+		const templateSetting = new Setting(containerEl)
 			.setName('Template File')
 			.setDesc(`Path to template file for new Daily Notes (${templateInheritanceStatus})`)
-			.addText(text => text
-				.setPlaceholder('Templates/Daily Note Template.md')
-				.setValue(this.plugin.settings.dailyNoteTemplate || '')
-				.onChange(async (value) => {
-					await this.plugin.updateSetting('dailyNoteTemplate', value || undefined);
-					this.display(); // Refresh to update inheritance indicators
+			.addText(text => {
+				templateTextComponent = text;
+				return text
+					.setPlaceholder('Templates/Daily Note Template.md')
+					.setValue(this.plugin.settings.dailyNoteTemplate || '')
+					.onChange(async (value) => {
+						const validation = this.pathValidator.validateFilePath(value || '');
+						
+						if (validation.isValid) {
+							await this.plugin.updateSetting('dailyNoteTemplate', value || undefined);
+							this.clearValidationMessage(templateSetting.settingEl);
+							if (validation.warningMessage) {
+								this.showValidationMessage(templateSetting.settingEl, validation.warningMessage, 'warning');
+							}
+							this.display(); // Refresh to update inheritance indicators
+						} else {
+							this.showValidationMessage(templateSetting.settingEl, validation.error!, 'error');
+						}
+					});
+			})
+			.addButton(button => button
+				.setButtonText('参照')
+				.setTooltip('既存のMarkdownファイルを選択')
+				.onClick(() => {
+					this.showFileSelector(templateSetting, async (selectedPath) => {
+						templateTextComponent.setValue(selectedPath);
+						// Trigger validation and save
+						const validation = this.pathValidator.validateFilePath(selectedPath);
+						if (validation.isValid) {
+							await this.plugin.updateSetting('dailyNoteTemplate', selectedPath || undefined);
+							this.clearValidationMessage(templateSetting.settingEl);
+							if (validation.warningMessage) {
+								this.showValidationMessage(templateSetting.settingEl, validation.warningMessage, 'warning');
+							}
+							this.display();
+						} else {
+							this.showValidationMessage(templateSetting.settingEl, validation.error!, 'error');
+						}
+					});
 				}));
+		
+		// Initial validation for Template File
+		if (this.plugin.settings.dailyNoteTemplate) {
+			const initialTemplateValidation = this.pathValidator.validateFilePath(this.plugin.settings.dailyNoteTemplate);
+			if (!initialTemplateValidation.isValid) {
+				this.showValidationMessage(templateSetting.settingEl, initialTemplateValidation.error!, 'error');
+			} else if (initialTemplateValidation.warningMessage) {
+				this.showValidationMessage(templateSetting.settingEl, initialTemplateValidation.warningMessage, 'warning');
+			}
+		}
 
 		// Task Section Heading setting
 		new Setting(containerEl)
@@ -318,5 +400,131 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 		} catch (error) {
 			console.error('Failed to export logs:', error);
 		}
+	}
+
+	/**
+	 * Show validation message below a setting
+	 */
+	private showValidationMessage(settingEl: HTMLElement, message: string, type: 'error' | 'warning' | 'success'): void {
+		this.clearValidationMessage(settingEl);
+		
+		const messageEl = settingEl.createEl('div', {
+			cls: `setting-validation-message setting-validation-${type}`,
+			text: message
+		});
+
+		// Add appropriate styling
+		messageEl.style.fontSize = '0.85em';
+		messageEl.style.marginTop = '4px';
+		messageEl.style.padding = '4px 8px';
+		messageEl.style.borderRadius = '4px';
+		
+		switch (type) {
+			case 'error':
+				messageEl.style.color = '#e74c3c';
+				messageEl.style.backgroundColor = '#fdf2f2';
+				messageEl.style.border = '1px solid #fecaca';
+				break;
+			case 'warning':
+				messageEl.style.color = '#f39c12';
+				messageEl.style.backgroundColor = '#fefdf2';
+				messageEl.style.border = '1px solid #fde68a';
+				break;
+			case 'success':
+				messageEl.style.color = '#27ae60';
+				messageEl.style.backgroundColor = '#f0fdf4';
+				messageEl.style.border = '1px solid #bbf7d0';
+				break;
+		}
+	}
+
+	/**
+	 * Clear any existing validation message
+	 */
+	private clearValidationMessage(settingEl: HTMLElement): void {
+		const existingMessage = settingEl.querySelector('.setting-validation-message');
+		if (existingMessage) {
+			existingMessage.remove();
+		}
+	}
+
+	/**
+	 * Show file selector modal for template file selection
+	 */
+	private showFileSelector(setting: Setting, onSelect: (path: string) => void): void {
+		const modal = new FileSelectionModal(this.app, this.pathValidator.getAllMarkdownFiles(), onSelect);
+		modal.open();
+	}
+}
+
+/**
+ * Modal for selecting files from the vault
+ */
+class FileSelectionModal extends Modal {
+	private files: string[];
+	private onSelect: (path: string) => void;
+
+	constructor(app: App, files: string[], onSelect: (path: string) => void) {
+		super(app);
+		this.files = files;
+		this.onSelect = onSelect;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		contentEl.createEl('h3', { text: 'テンプレートファイルを選択' });
+
+		if (this.files.length === 0) {
+			contentEl.createEl('p', { 
+				text: 'Markdownファイルが見つかりません。',
+				cls: 'setting-item-description'
+			});
+			return;
+		}
+
+		const listEl = contentEl.createEl('div', { cls: 'file-selection-list' });
+		listEl.style.maxHeight = '300px';
+		listEl.style.overflowY = 'auto';
+		listEl.style.border = '1px solid var(--background-modifier-border)';
+		listEl.style.borderRadius = '4px';
+
+		this.files.forEach(filePath => {
+			const itemEl = listEl.createEl('div', { 
+				cls: 'file-selection-item',
+				text: filePath
+			});
+			
+			itemEl.style.padding = '8px 12px';
+			itemEl.style.cursor = 'pointer';
+			itemEl.style.borderBottom = '1px solid var(--background-modifier-border-hover)';
+			
+			itemEl.addEventListener('click', () => {
+				this.onSelect(filePath);
+				this.close();
+			});
+			
+			itemEl.addEventListener('mouseenter', () => {
+				itemEl.style.backgroundColor = 'var(--background-modifier-hover)';
+			});
+			
+			itemEl.addEventListener('mouseleave', () => {
+				itemEl.style.backgroundColor = '';
+			});
+		});
+
+		// Add cancel button
+		const buttonContainer = contentEl.createEl('div', { cls: 'modal-button-container' });
+		buttonContainer.style.marginTop = '16px';
+		buttonContainer.style.textAlign = 'right';
+		
+		const cancelButton = buttonContainer.createEl('button', { text: 'キャンセル' });
+		cancelButton.addEventListener('click', () => this.close());
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
 	}
 }
