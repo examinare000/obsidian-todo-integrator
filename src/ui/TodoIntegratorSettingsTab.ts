@@ -4,7 +4,6 @@ import { App, PluginSettingTab, Setting, Modal, TextComponent } from 'obsidian';
 import { TodoIntegratorPlugin } from '../TodoIntegratorPlugin';
 import { UI_TEXT } from '../constants';
 import { PathValidator, ValidationResult } from '../utils/pathValidation';
-import { InputSanitizer } from '../utils/inputSanitizer';
 
 export class TodoIntegratorSettingsTab extends PluginSettingTab {
 	plugin: TodoIntegratorPlugin;
