@@ -79,7 +79,8 @@ export const ERROR_CODES = {
 export const LOG_LEVELS = {
 	DEBUG: 0,
 	INFO: 1,
-	ERROR: 2,
+	WARN: 2,
+	ERROR: 3,
 } as const;
 
 export const DATE_FORMAT = 'YYYY-MM-DD';

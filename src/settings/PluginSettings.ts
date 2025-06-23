@@ -93,7 +93,7 @@ export class PluginSettings {
 		}
 
 		// Validate log level
-		if (!['debug', 'info', 'error'].includes(validated.logLevel)) {
+		if (!['debug', 'info', 'warn', 'error'].includes(validated.logLevel)) {
 			validated.logLevel = 'info';
 		}
 
@@ -178,7 +178,7 @@ export class PluginSettings {
 	}
 
 	getLogConfig(): {
-		logLevel: 'debug' | 'info' | 'error';
+		logLevel: 'debug' | 'info' | 'warn' | 'error';
 	} {
 		return {
 			logLevel: this.settings.logLevel

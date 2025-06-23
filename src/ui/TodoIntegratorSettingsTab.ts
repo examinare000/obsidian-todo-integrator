@@ -201,10 +201,11 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 			.setDesc('Logging verbosity for debugging')
 			.addDropdown(dropdown => dropdown
 				.addOption('error', 'Error')
+				.addOption('warn', 'Warn')
 				.addOption('info', 'Info')
 				.addOption('debug', 'Debug')
 				.setValue(this.plugin.settings.logLevel)
-				.onChange(async (value: 'debug' | 'info' | 'error') => {
+				.onChange(async (value: 'debug' | 'info' | 'warn' | 'error') => {
 					await this.plugin.updateSetting('logLevel', value);
 				}));
 

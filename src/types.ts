@@ -7,7 +7,7 @@ export interface TodoIntegratorSettings {
 	dailyNotesPath: string;
 	autoSyncEnabled: boolean;
 	syncIntervalMinutes: number;
-	logLevel: 'debug' | 'info' | 'error';
+	logLevel: 'debug' | 'info' | 'warn' | 'error';
 	lastSyncTime?: string;
 	advancedConfigEnabled: boolean;
 	dailyNoteDateFormat: string;
@@ -105,8 +105,9 @@ export interface UserInfo {
 export interface Logger {
 	debug(message: string, context?: any): void;
 	info(message: string, context?: any): void;
+	warn(message: string, context?: any): void;
 	error(message: string, context?: any): void;
-	setLogLevel(level: 'debug' | 'info' | 'error'): void;
+	setLogLevel(level: 'debug' | 'info' | 'warn' | 'error'): void;
 }
 
 export interface ErrorContext {

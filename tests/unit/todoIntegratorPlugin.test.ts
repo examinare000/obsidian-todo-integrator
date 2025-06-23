@@ -93,6 +93,9 @@ describe('TodoIntegratorPlugin', () => {
 				autoSyncEnabled: true,
 				syncIntervalMinutes: 30,
 				logLevel: 'info',
+				advancedConfigEnabled: false,
+				dailyNoteDateFormat: 'YYYY-MM-DD',
+				taskSectionHeading: '# Tasks',
 			};
 
 			await plugin.saveSettings();

@@ -4,15 +4,15 @@ import { Logger } from '../types';
 import { LOG_LEVELS } from '../constants';
 
 export class SimpleLogger implements Logger {
-	private currentLevel: 'debug' | 'info' | 'error' = 'info';
+	private currentLevel: 'debug' | 'info' | 'warn' | 'error' = 'info';
 	private logHistory: Array<{ level: string; message: string; timestamp: string; context?: any }> = [];
 	private maxHistorySize = 100;
 
-	constructor(level: 'debug' | 'info' | 'error' = 'info') {
+	constructor(level: 'debug' | 'info' | 'warn' | 'error' = 'info') {
 		this.currentLevel = level;
 	}
 
-	setLogLevel(level: 'debug' | 'info' | 'error'): void {
+	setLogLevel(level: 'debug' | 'info' | 'warn' | 'error'): void {
 		this.currentLevel = level;
 	}
 
@@ -24,11 +24,15 @@ export class SimpleLogger implements Logger {
 		this.log('info', message, context);
 	}
 
+	warn(message: string, context?: any): void {
+		this.log('warn', message, context);
+	}
+
 	error(message: string, context?: any): void {
 		this.log('error', message, context);
 	}
 
-	private log(level: 'debug' | 'info' | 'error', message: string, context?: any): void {
+	private log(level: 'debug' | 'info' | 'warn' | 'error', message: string, context?: any): void {
 		const currentLevelValue = LOG_LEVELS[this.currentLevel.toUpperCase() as keyof typeof LOG_LEVELS];
 		const messageLevelValue = LOG_LEVELS[level.toUpperCase() as keyof typeof LOG_LEVELS];
 
@@ -65,6 +69,13 @@ export class SimpleLogger implements Logger {
 					console.info(formattedMessage, context);
 				} else {
 					console.info(formattedMessage);
+				}
+				break;
+			case 'warn':
+				if (context) {
+					console.warn(formattedMessage, context);
+				} else {
+					console.warn(formattedMessage);
 				}
 				break;
 			case 'error':

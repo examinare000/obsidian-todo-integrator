@@ -32,8 +32,8 @@ export class DailyNotesDetector {
 
 		try {
 			// Check if Daily Notes plugin is enabled
-			const plugins = this.app.internalPlugins;
-			const dailyNotesPlugin = plugins.getPluginById('daily-notes');
+			const plugins = (this.app as any).internalPlugins;
+			const dailyNotesPlugin = plugins?.getPluginById('daily-notes');
 
 			if (!dailyNotesPlugin || !dailyNotesPlugin.enabled) {
 				this.logger.info('Daily Notes plugin not found or not enabled, using fallback defaults');
@@ -74,8 +74,8 @@ export class DailyNotesDetector {
 	 */
 	isDailyNotesPluginAvailable(): boolean {
 		try {
-			const plugins = this.app.internalPlugins;
-			const dailyNotesPlugin = plugins.getPluginById('daily-notes');
+			const plugins = (this.app as any).internalPlugins;
+			const dailyNotesPlugin = plugins?.getPluginById('daily-notes');
 			return dailyNotesPlugin?.enabled || false;
 		} catch (error) {
 			this.logger.debug('Error checking Daily Notes plugin availability', { error });
