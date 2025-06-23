@@ -12,14 +12,17 @@ import {
 	GraphApiError,
 } from '../types';
 import { GRAPH_ENDPOINTS, ERROR_CODES } from '../constants';
+import { SecureErrorHandler } from '../utils/secureErrorHandler';
 
 export class TodoApiClient {
 	private tokenProvider: TokenProvider | null = null;
 	private logger: Logger;
 	private defaultListId: string | null = null;
+	private errorHandler: SecureErrorHandler;
 
 	constructor(logger: Logger) {
 		this.logger = logger;
+		this.errorHandler = new SecureErrorHandler(logger);
 	}
 
 	initialize(tokenProvider: TokenProvider): void {
@@ -64,14 +67,8 @@ export class TodoApiClient {
 			return userInfo;
 
 		} catch (error) {
-			const context: ErrorContext = {
-				component: 'TodoApiClient',
-				method: 'getUserInfo',
-				timestamp: new Date().toISOString(),
-				details: { error },
-			};
-			this.logger.error('Failed to get user info', context);
-			throw new Error(`${ERROR_CODES.API_ERROR}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			const secureError = this.errorHandler.handleApiError(error, 'ユーザー情報取得');
+			throw new Error(`${ERROR_CODES.API_ERROR}: ${secureError.userMessage}`);
 		}
 	}
 
