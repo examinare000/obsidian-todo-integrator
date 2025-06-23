@@ -38,6 +38,17 @@ describe('TodoSynchronizer', () => {
 			updateTaskCompletion: jest.fn(),
 			getTodayNotePath: jest.fn(),
 			getNotePath: jest.fn(),
+			app: {
+				vault: {
+					getAbstractFileByPath: jest.fn().mockReturnValue({
+						name: 'test.md',
+						path: 'Daily Notes/2024-01-15.md'
+					}),
+					create: jest.fn().mockResolvedValue(undefined),
+					read: jest.fn().mockResolvedValue('- [ ] New Obsidian Task'),
+					modify: jest.fn().mockResolvedValue(undefined),
+				}
+			}
 		} as any;
 
 		synchronizer = new TodoSynchronizer(
