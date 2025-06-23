@@ -11,7 +11,7 @@ import {
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
-import moment from 'moment';
+import { moment } from 'obsidian';
 
 export class DailyNoteManager {
 	private app: App;
