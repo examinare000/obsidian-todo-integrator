@@ -82,6 +82,12 @@ export class TodoSynchronizer {
 				this.apiClient.getTasks(),
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
+			
+			// Log Microsoft Todo tasks for debugging
+			this.logger.info('Microsoft Todo tasks retrieved', {
+				count: msftTasks.length,
+				tasks: msftTasks.map(t => ({ id: t.id, title: t.title }))
+			});
 
 			// Find new Microsoft tasks that don't exist in Obsidian
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks);
