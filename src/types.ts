@@ -53,12 +53,14 @@ export interface TodoList {
 }
 
 export interface ObsidianTask {
-	title: string;
+	file: string;
+	line: number;
+	text: string;
 	completed: boolean;
-	filePath: string;
-	lineNumber: number;
-	todoId?: string;
 	completionDate?: string;
+	dueDate?: string;
+	microsoftTodoId?: string;
+	indent?: string;
 }
 
 export interface DailyNoteTask {
