@@ -87,11 +87,11 @@ export class AuthenticationModal extends Modal {
 			cls: 'todo-integrator-code'
 		});
 		
-		const copyUrlButton = urlContainer.createEl('button', { 
-			text: 'Copy URL',
-			cls: 'mod-small'
+		const openUrlButton = urlContainer.createEl('button', { 
+			text: 'Open in Browser',
+			cls: 'mod-small mod-cta'
 		});
-		copyUrlButton.onclick = () => this.copyToClipboard(deviceCode.verificationUri, 'URL copied!');
+		openUrlButton.onclick = () => this.openInBrowser(deviceCode.verificationUri);
 
 		// Device code section
 		const codeContainer = instructionEl.createEl('div', { cls: 'todo-integrator-code-container' });
@@ -109,7 +109,7 @@ export class AuthenticationModal extends Modal {
 
 		// Instructions
 		const stepsEl = instructionEl.createEl('ol', { cls: 'todo-integrator-steps' });
-		stepsEl.createEl('li', { text: 'Click "Copy URL" and open the link in your web browser' });
+		stepsEl.createEl('li', { text: 'Click "Open in Browser" to open the authentication page' });
 		stepsEl.createEl('li', { text: 'Click "Copy Code" and paste the device code when prompted' });
 		stepsEl.createEl('li', { text: 'Complete the authentication in your browser' });
 		stepsEl.createEl('li', { text: 'Return to Obsidian - this dialog will close automatically' });
@@ -193,6 +193,35 @@ export class AuthenticationModal extends Modal {
 			cls: 'mod-cancel'
 		});
 		cancelButton.onclick = () => this.close();
+	}
+
+	private openInBrowser(url: string): void {
+		try {
+			// Use Obsidian's built-in method to open external URLs
+			window.open(url, '_blank');
+			
+			// Show temporary success feedback
+			const feedback = document.createElement('span');
+			feedback.textContent = 'Opening browser...';
+			feedback.style.color = 'var(--text-success)';
+			feedback.style.marginLeft = '8px';
+			feedback.style.fontSize = '0.9em';
+			
+			// Find the button that was clicked and add feedback
+			const event = window.event;
+			if (event && event.target instanceof HTMLElement) {
+				const button = event.target;
+				button.parentElement?.appendChild(feedback);
+				
+				setTimeout(() => {
+					feedback.remove();
+				}, 2000);
+			}
+		} catch (error) {
+			console.error('Failed to open URL in browser:', error);
+			// Fallback: copy to clipboard if opening browser fails
+			this.copyToClipboard(url, 'URL copied (please open manually)');
+		}
 	}
 
 	private async copyToClipboard(text: string, successMessage: string): Promise<void> {
