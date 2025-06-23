@@ -200,7 +200,7 @@ export class TodoApiClient {
 			const accessToken = await this.getAccessToken();
 			
 			// Clean title to ensure no [todo:: tags are included
-			const cleanTitle = title.replace(/\[todo::[a-zA-Z0-9\-]+\]/g, '').trim();
+			const cleanTitle = title.replace(/\[todo::[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
 			
 			const taskData: any = {
 				title: cleanTitle,
