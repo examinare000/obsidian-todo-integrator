@@ -238,7 +238,7 @@ export class TodoApiClient {
 			const accessToken = await this.getAccessToken();
 			
 			// Clean title to ensure no [todo:: tags are included
-			const cleanTitle = title.replace(/\[todo::[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+			const cleanTitle = title.replace(/\[todo::[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
 			
 			const taskData: any = {
 				title: cleanTitle,
@@ -267,7 +267,7 @@ export class TodoApiClient {
 			}
 
 			const newTask: TodoTask = await response.json();
-			this.logger.info('Task created successfully', {
+			this.logger.info('[DEBUG] Task created successfully', {
 				taskId: newTask.id,
 				title: newTask.title,
 				originalTitle: title,

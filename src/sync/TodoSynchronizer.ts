@@ -93,8 +93,8 @@ export class TodoSynchronizer {
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 			
-			// Log Microsoft Todo tasks for debugging
-			this.logger.info('Microsoft Todo tasks retrieved', {
+			// Log Microsoft Todo tasks for debugging (temporarily using info level)
+			this.logger.info('[DEBUG] Microsoft Todo tasks retrieved', {
 				count: msftTasks.length,
 				tasks: msftTasks.map(t => ({ id: t.id, title: t.title }))
 			});
@@ -107,7 +107,7 @@ export class TodoSynchronizer {
 						const cleanedTitle = this.cleanTaskTitle(task.title);
 						try {
 							await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
-							this.logger.info('Cleaned Microsoft Todo task title', {
+							this.logger.info('[DEBUG] Cleaned Microsoft Todo task title', {
 								taskId: task.id,
 								originalTitle: task.title,
 								cleanedTitle: cleanedTitle
@@ -149,7 +149,7 @@ export class TodoSynchronizer {
 					await this.metadataStore.setMetadata(taskStartDate, cleanedTitle, task.id);
 					
 					added++;
-					this.logger.debug('Added Microsoft task to Obsidian', { 
+					this.logger.info('[DEBUG] Added Microsoft task to Obsidian', { 
 						taskId: task.id, 
 						originalTitle: task.title,
 						cleanedTitle: cleanedTitle,
@@ -210,7 +210,7 @@ export class TodoSynchronizer {
 			for (const task of newObsidianTasks) {
 				// Skip if task already exists in Microsoft Todo (by normalized title)
 				if (existingTitles.has(this.normalizeTitle(task.title))) {
-					this.logger.debug('Skipping task - already exists in Microsoft Todo', {
+					this.logger.info('[DEBUG] Skipping task - already exists in Microsoft Todo', {
 						taskTitle: task.title
 					});
 					continue;
@@ -228,7 +228,7 @@ export class TodoSynchronizer {
 					}
 					
 					added++;
-					this.logger.debug('Added Obsidian task to Microsoft', { 
+					this.logger.info('[DEBUG] Added Obsidian task to Microsoft', { 
 						taskTitle: task.title,
 						msftTaskId: createdTask.id,
 						startDate: task.startDate,
@@ -457,7 +457,7 @@ export class TodoSynchronizer {
 	private cleanTaskTitle(title: string): string {
 		// Remove [todo::ID] pattern from the title
 		const cleaned = title.replace(/\[todo::[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-		this.logger.debug('Cleaning task title', { original: title, cleaned });
+		this.logger.info('[DEBUG] Cleaning task title', { original: title, cleaned });
 		return cleaned;
 	}
 }
