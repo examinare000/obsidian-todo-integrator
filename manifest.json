@@ -1,7 +1,7 @@
 {
 	"id": "todo-integrator",
 	"name": "ToDo Integrator",
-	"version": "0.2.4",
+	"version": "0.2.4-dev4",
 	"minAppVersion": "0.15.0",
 	"description": "Syncs Microsoft To Do tasks with Obsidian Daily Notes",
 	"author": "ToDo Integrator",

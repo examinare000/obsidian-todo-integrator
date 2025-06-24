@@ -79,7 +79,6 @@ export interface DailyNoteTask {
 	title: string;
 	completed: boolean;
 	lineNumber: number;
-	todoId?: string;
 	completionDate?: string;
 	startDate?: string;
 	filePath?: string;

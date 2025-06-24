@@ -138,7 +138,8 @@ export class TodoIntegratorPlugin extends Plugin {
 			this.apiClient, 
 			this.dailyNoteManager, 
 			this.logger,
-			this.settings?.taskSectionHeading || DEFAULT_SETTINGS.taskSectionHeading
+			this.settings?.taskSectionHeading || DEFAULT_SETTINGS.taskSectionHeading,
+			this
 		);
 	}
 

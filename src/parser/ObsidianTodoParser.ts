@@ -4,7 +4,7 @@
 import { App, TFile } from 'obsidian';
 import { Logger, ObsidianTask } from '../types';
 import { ErrorHandler } from '../utils/ErrorHandler';
-import { TASK_REGEX, TODO_ID_REGEX } from '../constants';
+import { TASK_REGEX } from '../constants';
 
 export class ObsidianTodoParser {
 	private app: App;
@@ -85,9 +85,8 @@ export class ObsidianTodoParser {
 					const dueDateMatch = taskText.match(/due:\s*(\d{4}-\d{2}-\d{2})/);
 					const dueDate = dueDateMatch ? dueDateMatch[1] : undefined;
 					
-					// Extract Microsoft Todo ID if present
-					const todoIdMatch = taskText.match(TODO_ID_REGEX);
-					const microsoftTodoId = todoIdMatch ? todoIdMatch[1] : undefined;
+					// Microsoft Todo ID is no longer stored in task text
+					const microsoftTodoId = undefined;
 					
 					// Extract clean title
 					const title = this.extractTaskTitle(taskText);
@@ -240,8 +239,7 @@ export class ObsidianTodoParser {
 		// Remove due date metadata
 		title = title.replace(/due:\s*\d{4}-\d{2}-\d{2}/, '');
 		
-		// Remove Microsoft Todo ID metadata
-		title = title.replace(TODO_ID_REGEX, '');
+		// Microsoft Todo ID is no longer stored in task text
 		
 		// Remove other common metadata patterns
 		title = title.replace(/#\w+/g, ''); // Remove hashtags
@@ -268,8 +266,8 @@ export class ObsidianTodoParser {
 		const dueDateMatch = taskText.match(/due:\s*(\d{4}-\d{2}-\d{2})/);
 		const dueDate = dueDateMatch ? dueDateMatch[1] : undefined;
 		
-		const todoIdMatch = taskText.match(TODO_ID_REGEX);
-		const microsoftTodoId = todoIdMatch ? todoIdMatch[1] : undefined;
+		// Microsoft Todo ID is no longer stored in task text
+		const microsoftTodoId = undefined;
 		
 		const title = this.extractTaskTitle(taskText);
 

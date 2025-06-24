@@ -7,7 +7,6 @@ import {
 	DATE_FORMAT, 
 	TODO_SECTION_HEADER, 
 	TASK_REGEX, 
-	TODO_ID_REGEX, 
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
@@ -120,7 +119,7 @@ export class DailyNoteManager {
 		}
 	}
 
-	async addTaskToTodoSection(filePath: string, taskTitle: string, todoId?: string, taskSectionHeading?: string): Promise<void> {
+	async addTaskToTodoSection(filePath: string, taskTitle: string, taskSectionHeading?: string): Promise<void> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -162,8 +161,7 @@ export class DailyNoteManager {
 			}
 
 			// Format the task line
-			const todoIdPart = todoId ? ` [todo::${todoId}]` : '';
-			const taskLine = `- [ ] ${taskTitle}${todoIdPart}`;
+			const taskLine = `- [ ] ${taskTitle}`;
 
 			// Insert the task
 			lines.splice(insertionLine, 0, taskLine);
@@ -173,7 +171,6 @@ export class DailyNoteManager {
 			this.logger.info('Task added to Todo section', { 
 				filePath, 
 				taskTitle, 
-				todoId, 
 				lineNumber: insertionLine,
 				sectionHeader
 			});
@@ -183,7 +180,7 @@ export class DailyNoteManager {
 				component: 'DailyNoteManager',
 				method: 'addTaskToTodoSection',
 				timestamp: new Date().toISOString(),
-				details: { filePath, taskTitle, todoId, taskSectionHeading, error },
+				details: { filePath, taskTitle, taskSectionHeading, error },
 			};
 			this.logger.error('Failed to add task to Todo section', context);
 			throw error;
@@ -244,7 +241,7 @@ export class DailyNoteManager {
 				const taskMatch = line.match(TASK_REGEX);
 
 				if (taskMatch) {
-					const [, indent, completed, title, todoId, completionDate] = taskMatch;
+					const [, indent, completed, title, completionDate] = taskMatch;
 					
 					// Skip empty or whitespace-only tasks
 					const cleanTitle = title.trim();
@@ -257,7 +254,6 @@ export class DailyNoteManager {
 						title: cleanTitle,
 						completed: completed === 'x',
 						lineNumber: i,
-						todoId: todoId || undefined,
 						completionDate: completionDate || undefined,
 						startDate: startDate,
 						filePath: filePath,

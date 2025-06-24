@@ -34,13 +34,34 @@ describe('TodoSynchronizer - Basic Functionality', () => {
 			addTaskToTodoSection: jest.fn(),
 			updateTaskCompletion: jest.fn(),
 			getTodayNotePath: jest.fn(),
+			app: {
+				vault: {
+					getAbstractFileByPath: jest.fn().mockReturnValue(null),
+					create: jest.fn().mockResolvedValue(undefined),
+					read: jest.fn().mockResolvedValue(''),
+					modify: jest.fn().mockResolvedValue(undefined),
+				}
+			}
 		} as any;
 
+		const mockPlugin = {
+			loadData: jest.fn().mockResolvedValue({}),
+			saveData: jest.fn().mockResolvedValue(undefined)
+		} as any;
+		
 		synchronizer = new TodoSynchronizer(
 			mockApiClient,
 			mockDailyNoteManager,
-			mockLogger
+			mockLogger,
+			undefined,
+			mockPlugin
 		);
+		
+		// Mock the metadata store methods
+		const metadataStore = (synchronizer as any).metadataStore;
+		jest.spyOn(metadataStore, 'getMsftTaskId').mockReturnValue(undefined);
+		jest.spyOn(metadataStore, 'findByMsftTaskId').mockReturnValue(undefined);
+		jest.spyOn(metadataStore, 'setMetadata').mockImplementation(() => {});
 	});
 
 	test('should create synchronizer instance', () => {
@@ -49,8 +70,8 @@ describe('TodoSynchronizer - Basic Functionality', () => {
 
 	test('should detect duplicates by title', () => {
 		const obsidianTasks: any[] = [
-			{ title: 'Task 1', todoId: undefined },
-			{ title: 'Task 2', todoId: 'msft-2' },
+			{ title: 'Task 1', startDate: '2024-01-01' },
+			{ title: 'Task 2', startDate: '2024-01-02' },
 		];
 
 		const msftTasks: any[] = [
@@ -61,10 +82,16 @@ describe('TodoSynchronizer - Basic Functionality', () => {
 
 		const duplicates = synchronizer.detectDuplicates(obsidianTasks, msftTasks);
 
-		expect(duplicates).toHaveLength(1);
+		// Since we don't have metadata, all matching titles are considered duplicates
+		expect(duplicates).toHaveLength(2);
 		expect(duplicates[0]).toEqual({
 			obsidianTask: obsidianTasks[0],
 			msftTask: msftTasks[0],
+			confidence: 1.0,
+		});
+		expect(duplicates[1]).toEqual({
+			obsidianTask: obsidianTasks[1],
+			msftTask: msftTasks[1],
 			confidence: 1.0,
 		});
 	});
@@ -76,7 +103,7 @@ describe('TodoSynchronizer - Basic Functionality', () => {
 
 	test('should ignore case differences in titles', () => {
 		const obsidianTasks: any[] = [
-			{ title: 'TASK ONE', todoId: undefined },
+			{ title: 'TASK ONE', startDate: '2024-01-01' },
 		];
 
 		const msftTasks: any[] = [

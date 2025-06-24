@@ -131,14 +131,14 @@ Some notes here.`;
 
 ## ToDo
 - [ ] Existing task
-- [ ] New task [todo::task-123]
+- [ ] New task
 
 ## Notes`;
 
 			mockApp.vault.read = jest.fn().mockResolvedValue(fileContent);
 			mockApp.vault.modify = jest.fn().mockResolvedValue(undefined);
 
-			await manager.addTaskToTodoSection('test.md', 'New task', 'task-123');
+			await manager.addTaskToTodoSection('test.md', 'New task');
 
 			expect(mockApp.vault.modify).toHaveBeenCalledWith(
 				expect.any(Object),
@@ -146,7 +146,7 @@ Some notes here.`;
 			);
 		});
 
-		it('should add task without todo ID if not provided', async () => {
+		it('should add task to empty todo section', async () => {
 			const fileContent = `# Daily Note
 
 ## ToDo
@@ -177,8 +177,8 @@ Some notes here.`;
 			const fileContent = `# Daily Note
 
 ## ToDo
-- [ ] Task 1 [todo::task-123]
-- [x] Task 2 [todo::task-456] ✅ 2024-01-15
+- [ ] Task 1
+- [x] Task 2 ✅ 2024-01-15
 - [ ] Task 3
 
 ## Notes`;
@@ -193,7 +193,6 @@ Some notes here.`;
 				title: 'Task 1',
 				completed: false,
 				lineNumber: 3,
-				todoId: 'task-123',
 				completionDate: undefined,
 				startDate: undefined,
 				filePath: 'test.md',
@@ -203,7 +202,6 @@ Some notes here.`;
 				title: 'Task 2',
 				completed: true,
 				lineNumber: 4,
-				todoId: 'task-456',
 				completionDate: '2024-01-15',
 				startDate: undefined,
 				filePath: 'test.md',
@@ -213,7 +211,6 @@ Some notes here.`;
 				title: 'Task 3',
 				completed: false,
 				lineNumber: 5,
-				todoId: undefined,
 				completionDate: undefined,
 				startDate: undefined,
 				filePath: 'test.md',
@@ -239,13 +236,13 @@ No tasks here.`;
 			const fileContent = `# Daily Note
 
 ## ToDo
-- [ ] Task 1 [todo::task-123]
+- [ ] Task 1
 - [ ] Task 2`;
 
 			const expectedContent = `# Daily Note
 
 ## ToDo
-- [x] Task 1 [todo::task-123] ✅ 2024-01-15
+- [x] Task 1 ✅ 2024-01-15
 - [ ] Task 2`;
 
 			mockApp.vault.read = jest.fn().mockResolvedValue(fileContent);
@@ -263,13 +260,13 @@ No tasks here.`;
 			const fileContent = `# Daily Note
 
 ## ToDo
-- [x] Task 1 [todo::task-123] ✅ 2024-01-15
+- [x] Task 1 ✅ 2024-01-15
 - [ ] Task 2`;
 
 			const expectedContent = `# Daily Note
 
 ## ToDo
-- [ ] Task 1 [todo::task-123]
+- [ ] Task 1
 - [ ] Task 2`;
 
 			mockApp.vault.read = jest.fn().mockResolvedValue(fileContent);

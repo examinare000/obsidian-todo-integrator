@@ -28,6 +28,7 @@ describe('TodoSynchronizer', () => {
 			createTaskWithStartDate: jest.fn(),
 			completeTask: jest.fn(),
 			getDefaultListId: jest.fn(),
+			updateTaskTitle: jest.fn(),
 		} as any;
 
 		mockDailyNoteManager = {
@@ -51,11 +52,30 @@ describe('TodoSynchronizer', () => {
 			}
 		} as any;
 
+		const mockPlugin = {
+			loadData: jest.fn().mockResolvedValue({}),
+			saveData: jest.fn().mockResolvedValue(undefined)
+		} as any;
+		
 		synchronizer = new TodoSynchronizer(
 			mockApiClient,
 			mockDailyNoteManager,
-			mockLogger
+			mockLogger,
+			undefined,
+			mockPlugin
 		);
+		
+		// Mock the metadata store methods
+		const metadataStore = (synchronizer as any).metadataStore;
+		jest.spyOn(metadataStore, 'getMsftTaskId').mockImplementation((date: string, title: string) => {
+			// Return 'msft-1' for 'Completed Task' to simulate existing metadata
+			if (title === 'Completed Task' && (date === '2024-01-15' || date === '2024-01-01')) {
+				return 'msft-1';
+			}
+			return undefined;
+		});
+		jest.spyOn(metadataStore, 'findByMsftTaskId').mockReturnValue(undefined);
+		jest.spyOn(metadataStore, 'setMetadata').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -131,9 +151,14 @@ describe('TodoSynchronizer', () => {
 			const dailyTasks: DailyNoteTask[] = [];
 
 			mockApiClient.getTasks.mockResolvedValue(msftTasks);
+			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockDailyNoteManager.getNotePath.mockReturnValue('Daily Notes/2024-01-01.md');
 			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
+			
+			// Mock the vault file check for ensureNoteExists
+			(mockDailyNoteManager as any).app.vault.getAbstractFileByPath = jest.fn()
+				.mockReturnValue({ path: 'Daily Notes/2024-01-01.md' });
 
 			const result = await synchronizer.syncMsftToObsidian();
 
@@ -142,7 +167,6 @@ describe('TodoSynchronizer', () => {
 			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
 				'Daily Notes/2024-01-01.md',
 				'New Microsoft Task',
-				'msft-1',
 				undefined
 			);
 		});
@@ -162,7 +186,7 @@ describe('TodoSynchronizer', () => {
 					title: 'Existing Task',
 					completed: false,
 					lineNumber: 5,
-					todoId: 'msft-1',
+					startDate: '2024-01-01',
 				},
 			];
 
@@ -201,8 +225,7 @@ describe('TodoSynchronizer', () => {
 			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
 			mockApiClient.createTaskWithStartDate.mockResolvedValue(createdTask);
 			
-			// Mock updateTaskWithTodoId method
-			jest.spyOn(synchronizer as any, 'updateTaskWithTodoId').mockResolvedValue(undefined);
+			// Mock metadata store would be set after task creation
 
 			const result = await synchronizer.syncObsidianToMsft();
 
@@ -214,13 +237,13 @@ describe('TodoSynchronizer', () => {
 			);
 		});
 
-		it('should skip tasks that already have Microsoft IDs', async () => {
+		it('should skip tasks that already exist in Microsoft', async () => {
 			const dailyTasks: DailyNoteTask[] = [
 				{
 					title: 'Existing Task',
 					completed: false,
 					lineNumber: 5,
-					todoId: 'msft-123',
+					startDate: '2024-01-01',
 				},
 			];
 
@@ -235,6 +258,15 @@ describe('TodoSynchronizer', () => {
 
 	describe('syncCompletions', () => {
 		it('should sync completed tasks from Microsoft to Obsidian', async () => {
+			// Override the metadata store mock for this specific test
+			const metadataStore = (synchronizer as any).metadataStore;
+			jest.spyOn(metadataStore, 'findByMsftTaskId').mockImplementation((id: string) => {
+				if (id === 'msft-1') {
+					return { msftTaskId: 'msft-1', date: '2024-01-15', title: 'Completed Task', lastSynced: Date.now() };
+				}
+				return undefined;
+			});
+			
 			const msftTasks: TodoTask[] = [
 				{
 					id: 'msft-1',
@@ -250,7 +282,7 @@ describe('TodoSynchronizer', () => {
 					title: 'Completed Task',
 					completed: false,
 					lineNumber: 5,
-					todoId: 'msft-1',
+					startDate: '2024-01-15',
 					filePath: 'Daily Notes/2024-01-15.md',
 				},
 			];
@@ -307,10 +339,10 @@ describe('TodoSynchronizer', () => {
 	});
 
 	describe('detectDuplicates', () => {
-		it('should detect duplicate tasks by title', () => {
+		it('should detect duplicate tasks by title when no metadata exists', () => {
 			const obsidianTasks: any[] = [
-				{ title: 'Task 1', todoId: undefined },
-				{ title: 'Task 2', todoId: 'msft-2' },
+				{ title: 'Task 1', startDate: '2024-01-01' },
+				{ title: 'Task 2', startDate: '2024-01-02' },
 			];
 
 			const msftTasks: any[] = [
@@ -321,10 +353,16 @@ describe('TodoSynchronizer', () => {
 
 			const duplicates = synchronizer.detectDuplicates(obsidianTasks, msftTasks);
 
-			expect(duplicates).toHaveLength(1);
+			// Since we don't have metadata, all matching titles are considered duplicates
+			expect(duplicates).toHaveLength(2);
 			expect(duplicates[0]).toEqual({
 				obsidianTask: obsidianTasks[0],
 				msftTask: msftTasks[0],
+				confidence: 1.0,
+			});
+			expect(duplicates[1]).toEqual({
+				obsidianTask: obsidianTasks[1],
+				msftTask: msftTasks[1],
 				confidence: 1.0,
 			});
 		});

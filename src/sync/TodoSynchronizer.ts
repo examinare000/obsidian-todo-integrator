@@ -1,8 +1,11 @@
 // Todo Synchronizer for bidirectional sync between Microsoft Todo and Obsidian
 // Handles sync logic, duplicate detection, and completion status management
 
+import { App, Plugin } from 'obsidian';
 import { TodoApiClient } from '../api/TodoApiClient';
 import { DailyNoteManager } from './DailyNoteManager';
+import { TaskMetadataStore } from './TaskMetadataStore';
+import { SimpleLogger } from '../utils/simpleLogger';
 import {
 	TodoTask,
 	DailyNoteTask,
@@ -16,6 +19,7 @@ import { ERROR_CODES } from '../constants';
 export class TodoSynchronizer {
 	private apiClient: TodoApiClient;
 	private dailyNoteManager: DailyNoteManager;
+	private metadataStore: TaskMetadataStore;
 	private logger: Logger;
 	private taskSectionHeading?: string;
 
@@ -23,12 +27,15 @@ export class TodoSynchronizer {
 		apiClient: TodoApiClient,
 		dailyNoteManager: DailyNoteManager,
 		logger: Logger,
-		taskSectionHeading?: string
+		taskSectionHeading: string | undefined,
+		plugin: Plugin
 	) {
 		this.apiClient = apiClient;
 		this.dailyNoteManager = dailyNoteManager;
 		this.logger = logger;
 		this.taskSectionHeading = taskSectionHeading;
+		// Initialize metadata store with plugin instance
+		this.metadataStore = new TaskMetadataStore(plugin, logger as SimpleLogger);
 	}
 
 	setTaskSectionHeading(taskSectionHeading: string): void {
@@ -55,6 +62,9 @@ export class TodoSynchronizer {
 				completions,
 				timestamp: startTime,
 			};
+
+			// Clean up old metadata (older than 90 days)
+			await this.metadataStore.cleanupOldMetadata();
 
 			this.logger.info('Full synchronization completed', { result });
 			return result;
@@ -132,9 +142,12 @@ export class TodoSynchronizer {
 					await this.dailyNoteManager.addTaskToTodoSection(
 						targetNotePath,
 						cleanedTitle,
-						task.id,
 						this.taskSectionHeading
 					);
+					
+					// Store metadata for this task
+					await this.metadataStore.setMetadata(taskStartDate, cleanedTitle, task.id);
+					
 					added++;
 					this.logger.debug('Added Microsoft task to Obsidian', { 
 						taskId: task.id, 
@@ -174,8 +187,12 @@ export class TodoSynchronizer {
 			// Get all daily note tasks from all files
 			const allDailyTasks = await this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading);
 
-			// Find new Obsidian tasks (those without todoId)
-			const newObsidianTasks = allDailyTasks.filter(task => !task.todoId && !task.completed);
+			// Find new Obsidian tasks (those without metadata)
+			const newObsidianTasks = allDailyTasks.filter(task => {
+				if (task.completed || !task.startDate) return false;
+				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, task.title);
+				return !existingMsftId;
+			});
 
 			// Get default list ID
 			const listId = this.apiClient.getDefaultListId();
@@ -205,8 +222,10 @@ export class TodoSynchronizer {
 						task.startDate
 					);
 					
-					// Update the task line in Obsidian to include the Microsoft Todo ID
-					await this.updateTaskWithTodoId(task.filePath!, task.lineNumber, createdTask.id);
+					// Store metadata for this task
+					if (task.startDate) {
+						await this.metadataStore.setMetadata(task.startDate, task.title, createdTask.id);
+					}
 					
 					added++;
 					this.logger.debug('Added Obsidian task to Microsoft', { 
@@ -249,17 +268,20 @@ export class TodoSynchronizer {
 
 			// Create lookup maps
 			const msftTasksById = new Map(msftTasks.map(task => [task.id, task]));
-			const dailyTasksById = new Map(
-				allDailyTasks
-					.filter(task => task.todoId)
-					.map(task => [task.todoId!, task])
-			);
 
 			const listId = this.apiClient.getDefaultListId();
 
 			// Sync Microsoft completions to Obsidian
 			for (const msftTask of msftTasks) {
-				const dailyTask = dailyTasksById.get(msftTask.id);
+				// Find matching Obsidian task using metadata
+				const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
+				if (!metadata) continue;
+				
+				// Find the actual task in daily notes
+				const dailyTask = allDailyTasks.find(task => 
+					task.startDate === metadata.date && 
+					this.normalizeTitle(task.title) === this.normalizeTitle(metadata.title)
+				);
 				if (!dailyTask) continue;
 
 				const msftCompleted = msftTask.status === 'completed';
@@ -289,19 +311,17 @@ export class TodoSynchronizer {
 				}
 			}
 
-			// Sync Obsidian completions to Microsoft (matching by title and start date)
+			// Sync Obsidian completions to Microsoft
 			for (const dailyTask of allDailyTasks) {
-				if (!dailyTask.completed || dailyTask.todoId) continue; // Skip incomplete tasks or tasks already synced
+				if (!dailyTask.completed || !dailyTask.startDate) continue;
 				
-				// Find matching Microsoft task by title and creation date
-				const matchingMsftTask = msftTasks.find(msftTask => {
-					const msftStartDate = new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
-					return this.normalizeTitle(msftTask.title) === this.normalizeTitle(dailyTask.title) &&
-						   msftStartDate === dailyTask.startDate &&
-						   msftTask.status !== 'completed';
-				});
+				// Look up Microsoft task ID from metadata
+				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, dailyTask.title);
+				if (!msftTaskId) continue;
+				
+				const matchingMsftTask = msftTasksById.get(msftTaskId);
 
-				if (matchingMsftTask) {
+				if (matchingMsftTask && matchingMsftTask.status !== 'completed') {
 					try {
 						if (!listId) {
 							throw new Error('No default list ID available');
@@ -336,8 +356,11 @@ export class TodoSynchronizer {
 		const duplicates: TaskPair[] = [];
 
 		for (const obsidianTask of obsidianTasks) {
-			// Skip tasks that already have a Microsoft Todo ID
-			if (obsidianTask.todoId) continue;
+			// Skip if we already have metadata for this task
+			if (obsidianTask.startDate) {
+				const existingMsftId = this.metadataStore.getMsftTaskId(obsidianTask.startDate, obsidianTask.title);
+				if (existingMsftId) continue;
+			}
 
 			for (const msftTask of msftTasks) {
 				// Simple title matching for now
@@ -359,63 +382,31 @@ export class TodoSynchronizer {
 	}
 
 	private findNewMsftTasks(msftTasks: TodoTask[], dailyTasks: DailyNoteTask[]): TodoTask[] {
-		const existingTaskIds = new Set(
-			dailyTasks
-				.filter(task => task.todoId)
-				.map(task => task.todoId)
-		);
-
-		const existingTitles = new Set(
-			dailyTasks.map(task => this.normalizeTitle(task.title))
-		);
-
-		return msftTasks.filter(task => 
-			!existingTaskIds.has(task.id) && 
-			!existingTitles.has(this.normalizeTitle(this.cleanTaskTitle(task.title)))
-		);
-	}
-
-	private async updateTaskWithTodoId(filePath: string, lineNumber: number, todoId: string): Promise<void> {
-		try {
-			// Get access to DailyNoteManager's app instance
-			const app = (this.dailyNoteManager as any).app;
+		// Tasks that exist in Microsoft but not in Obsidian
+		const newTasks: TodoTask[] = [];
+		
+		for (const msftTask of msftTasks) {
+			const cleanedTitle = this.cleanTaskTitle(msftTask.title);
+			const msftStartDate = new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
 			
-			// Read the file content
-			const file = app.vault.getAbstractFileByPath(filePath);
-			if (!file) {
-				throw new Error(`File not found: ${filePath}`);
-			}
-
-			const content = await app.vault.read(file);
-			const lines = content.split('\n');
-
-			if (lineNumber >= lines.length) {
-				throw new Error(`Line number ${lineNumber} is out of bounds`);
-			}
-
-			// Update the specific line to add the todo ID
-			const currentLine = lines[lineNumber];
+			// Check if we have metadata for this task
+			const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
+			if (metadata) continue;
 			
-			// Check if todo ID already exists to avoid duplicates
-			if (currentLine.includes('[todo::')) {
-				this.logger.debug('Task already has todo ID, skipping update', { filePath, lineNumber, todoId });
-				return;
+			// Check if task exists in daily notes by title and date
+			const existsInDailyNotes = dailyTasks.some(dailyTask => 
+				this.normalizeTitle(dailyTask.title) === this.normalizeTitle(cleanedTitle) &&
+				dailyTask.startDate === msftStartDate
+			);
+			
+			if (!existsInDailyNotes) {
+				newTasks.push(msftTask);
 			}
-
-			// Add todo ID to the end of the task line
-			const updatedLine = currentLine + ` [todo::${todoId}]`;
-			lines[lineNumber] = updatedLine;
-
-			// Write the updated content back to the file
-			const newContent = lines.join('\n');
-			await app.vault.modify(file, newContent);
-
-			this.logger.debug('Updated task with todo ID', { filePath, lineNumber, todoId });
-		} catch (error) {
-			this.logger.error('Failed to update task with todo ID', { filePath, lineNumber, todoId, error });
-			throw error;
 		}
+		
+		return newTasks;
 	}
+
 
 	private async ensureNoteExists(notePath: string, date: string): Promise<void> {
 		try {
@@ -465,7 +456,7 @@ export class TodoSynchronizer {
 
 	private cleanTaskTitle(title: string): string {
 		// Remove [todo::ID] pattern from the title
-		const cleaned = title.replace(/\s*\[todo::[^\]]+\]\s*/g, '').replace(/\s+/g, ' ').trim();
+		const cleaned = title.replace(/\[todo::[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
 		this.logger.debug('Cleaning task title', { original: title, cleaned });
 		return cleaned;
 	}
