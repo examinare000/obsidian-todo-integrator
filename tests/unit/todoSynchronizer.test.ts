@@ -198,6 +198,42 @@ describe('TodoSynchronizer', () => {
 			expect(result.added).toBe(0);
 			expect(mockDailyNoteManager.addTaskToTodoSection).not.toHaveBeenCalled();
 		});
+
+		it('should add completed Microsoft tasks as completed in Obsidian', async () => {
+			const msftTasks: TodoTask[] = [
+				{
+					id: 'msft-completed-1',
+					title: 'Completed Microsoft Task',
+					status: 'completed',
+					createdDateTime: '2024-01-01T00:00:00Z',
+					completedDateTime: '2024-01-02T00:00:00Z',
+				},
+			];
+
+			const dailyTasks: DailyNoteTask[] = [];
+
+			mockApiClient.getTasks.mockResolvedValue(msftTasks);
+			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getNotePath.mockReturnValue('Daily Notes/2024-01-01.md');
+			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
+			
+			// Mock the vault file check for ensureNoteExists
+			(mockDailyNoteManager as any).app.vault.getAbstractFileByPath = jest.fn()
+				.mockReturnValue({ path: 'Daily Notes/2024-01-01.md' });
+
+			const result = await synchronizer.syncMsftToObsidian();
+
+			expect(result.added).toBe(1);
+			expect(result.errors).toHaveLength(0);
+			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
+				'Daily Notes/2024-01-01.md',
+				'Completed Microsoft Task',
+				undefined,
+				true,
+				'2024-01-02'
+			);
+		});
 	});
 
 	describe('syncObsidianToMsft', () => {
