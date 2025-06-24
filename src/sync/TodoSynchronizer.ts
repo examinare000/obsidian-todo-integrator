@@ -295,9 +295,36 @@ export class TodoSynchronizer {
 				
 				if (msftCompleted && !dailyTask.completed) {
 					try {
-						const completionDate = msftTask.completedDateTime 
-							? new Date(msftTask.completedDateTime).toISOString().slice(0, 10)
-							: new Date().toISOString().slice(0, 10);
+						let completionDate: string;
+						
+						// Validate and parse completedDateTime
+						if (msftTask.completedDateTime && msftTask.completedDateTime.trim() !== '') {
+							try {
+								const parsedDate = new Date(msftTask.completedDateTime);
+								// Check if the date is valid
+								if (!isNaN(parsedDate.getTime())) {
+									completionDate = parsedDate.toISOString().slice(0, 10);
+								} else {
+									// Invalid date, use current date
+									this.logger.warn('Invalid completedDateTime format, using current date', {
+										taskId: msftTask.id,
+										completedDateTime: msftTask.completedDateTime
+									});
+									completionDate = new Date().toISOString().slice(0, 10);
+								}
+							} catch (dateError) {
+								// Date parsing failed, use current date
+								this.logger.warn('Failed to parse completedDateTime, using current date', {
+									taskId: msftTask.id,
+									completedDateTime: msftTask.completedDateTime,
+									error: dateError
+								});
+								completionDate = new Date().toISOString().slice(0, 10);
+							}
+						} else {
+							// No completedDateTime provided, use current date
+							completionDate = new Date().toISOString().slice(0, 10);
+						}
 
 						await this.dailyNoteManager.updateTaskCompletion(
 							dailyTask.filePath!,
