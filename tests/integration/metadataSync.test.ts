@@ -295,6 +295,75 @@ describe('Metadata-based Synchronization Integration', () => {
 			// Verify: New title is mapped to same ID
 			expect(metadataStore.getMsftTaskId('2024-01-15', 'Updated Title')).toBe('msft-1');
 		});
+
+		it('should handle invalid completedDateTime values gracefully', async () => {
+			// Setup: Metadata linking tasks
+			const metadataStore = (synchronizer as any).metadataStore;
+			await metadataStore.setMetadata('2024-01-15', 'Task with Invalid Date', 'msft-2');
+
+			// Mock findByMsftTaskId to return metadata
+			jest.spyOn(metadataStore, 'findByMsftTaskId').mockReturnValue({
+				msftTaskId: 'msft-2',
+				date: '2024-01-15',
+				title: 'Task with Invalid Date',
+				lastSynced: Date.now()
+			});
+
+			const msftTasks: TodoTask[] = [
+				{
+					id: 'msft-2',
+					title: 'Task with Invalid Date',
+					status: 'completed',
+					createdDateTime: '2024-01-15T00:00:00Z',
+					completedDateTime: 'invalid-date-format' // Invalid date format that causes "Invalid time value" error
+				}
+			];
+
+			const dailyTasks: DailyNoteTask[] = [
+				{
+					title: 'Task with Invalid Date',
+					completed: false,
+					lineNumber: 10,
+					startDate: '2024-01-15',
+					filePath: 'Daily Notes/2024-01-15.md'
+				}
+			];
+
+			mockApiClient.getTasks.mockResolvedValue(msftTasks);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
+
+			// Mock the current date for consistent testing
+			const mockDate = new Date('2024-01-25T12:00:00Z');
+			jest.spyOn(global, 'Date').mockImplementation((dateString?: any) => {
+				if (dateString) {
+					return new (Date as any)(dateString);
+				}
+				return mockDate;
+			});
+
+			// Execute sync - should not throw error
+			const result = await synchronizer.syncCompletions();
+
+			// Verify: Obsidian task was marked as completed with current date
+			expect(mockDailyNoteManager.updateTaskCompletion).toHaveBeenCalledWith(
+				'Daily Notes/2024-01-15.md',
+				10,
+				true,
+				'2024-01-25' // Current date since completedDateTime was invalid
+			);
+
+			expect(result.completed).toBe(1);
+			expect(result.errors).toHaveLength(0);
+
+			// Verify warning was logged (will hit the catch block due to invalid date parsing)
+			expect(mockLogger.warn).toHaveBeenCalledWith(
+				'Failed to parse completedDateTime, using current date',
+				expect.objectContaining({
+					taskId: 'msft-2',
+					completedDateTime: 'invalid-date-format'
+				})
+			);
+		});
 	});
 
 	describe('Full sync workflow', () => {
