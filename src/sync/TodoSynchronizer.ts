@@ -129,15 +129,17 @@ export class TodoSynchronizer {
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
 				.filter(task => task.status !== 'completed');
 
-			// Add each new task to the appropriate daily note based on creation date
+			// Add each new task to the appropriate daily note based on due date (fallback to creation date)
 			for (const task of newMsftTasks) {
 				try {
-					// Extract date from Microsoft Todo task creation date
-					const taskStartDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
-					const targetNotePath = this.dailyNoteManager.getNotePath(taskStartDate);
+					// Extract date from Microsoft Todo task - prefer due date, fallback to creation date
+					const taskDate = task.dueDateTime 
+						? new Date(task.dueDateTime.dateTime).toISOString().slice(0, 10)
+						: new Date(task.createdDateTime).toISOString().slice(0, 10);
+					const targetNotePath = this.dailyNoteManager.getNotePath(taskDate);
 					
 					// Ensure the target note exists
-					await this.ensureNoteExists(targetNotePath, taskStartDate);
+					await this.ensureNoteExists(targetNotePath, taskDate);
 					
 					const cleanedTitle = this.cleanTaskTitle(task.title);
 					
@@ -149,7 +151,7 @@ export class TodoSynchronizer {
 					);
 					
 					// Store metadata for this task
-					await this.metadataStore.setMetadata(taskStartDate, cleanedTitle, task.id);
+					await this.metadataStore.setMetadata(taskDate, cleanedTitle, task.id);
 					
 					added++;
 					this.logger.info('[DEBUG] Added Microsoft task to Obsidian', { 
@@ -157,7 +159,9 @@ export class TodoSynchronizer {
 						originalTitle: task.title,
 						cleanedTitle: cleanedTitle,
 						targetNote: targetNotePath,
-						startDate: taskStartDate
+						taskDate: taskDate,
+						dueDate: task.dueDateTime ? new Date(task.dueDateTime.dateTime).toISOString().slice(0, 10) : null,
+						createdDate: new Date(task.createdDateTime).toISOString().slice(0, 10)
 					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -390,7 +394,10 @@ export class TodoSynchronizer {
 		
 		for (const msftTask of msftTasks) {
 			const cleanedTitle = this.cleanTaskTitle(msftTask.title);
-			const msftStartDate = new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
+			// Use due date if available, otherwise use creation date
+			const msftTaskDate = msftTask.dueDateTime 
+				? new Date(msftTask.dueDateTime.dateTime).toISOString().slice(0, 10)
+				: new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
 			
 			// Check if we have metadata for this task
 			const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
@@ -399,7 +406,7 @@ export class TodoSynchronizer {
 			// Check if task exists in daily notes by title and date
 			const existsInDailyNotes = dailyTasks.some(dailyTask => 
 				this.normalizeTitle(dailyTask.title) === this.normalizeTitle(cleanedTitle) &&
-				dailyTask.startDate === msftStartDate
+				dailyTask.startDate === msftTaskDate
 			);
 			
 			if (!existsInDailyNotes) {

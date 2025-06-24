@@ -14,12 +14,18 @@ describe('TodoSynchronizer', () => {
 	let mockApiClient: jest.Mocked<TodoApiClient>;
 	let mockDailyNoteManager: jest.Mocked<DailyNoteManager>;
 	let mockLogger: any;
+	let mockPlugin: any;
 
 	beforeEach(() => {
 		mockLogger = {
 			debug: jest.fn(),
 			info: jest.fn(),
 			error: jest.fn(),
+		};
+
+		mockPlugin = {
+			loadData: jest.fn().mockResolvedValue({}),
+			saveData: jest.fn().mockResolvedValue(undefined),
 		};
 
 		mockApiClient = {
@@ -52,11 +58,6 @@ describe('TodoSynchronizer', () => {
 			}
 		} as any;
 
-		const mockPlugin = {
-			loadData: jest.fn().mockResolvedValue({}),
-			saveData: jest.fn().mockResolvedValue(undefined)
-		} as any;
-		
 		synchronizer = new TodoSynchronizer(
 			mockApiClient,
 			mockDailyNoteManager,
@@ -167,6 +168,45 @@ describe('TodoSynchronizer', () => {
 			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
 				'Daily Notes/2024-01-01.md',
 				'New Microsoft Task',
+				undefined
+			);
+		});
+
+		it('should use due date over creation date when adding tasks', async () => {
+			const msftTasks: TodoTask[] = [
+				{
+					id: 'msft-with-due',
+					title: 'Task with Due Date',
+					status: 'notStarted',
+					createdDateTime: '2024-01-01T00:00:00Z',
+					dueDateTime: {
+						dateTime: '2024-01-15T00:00:00Z',
+						timeZone: 'UTC'
+					}
+				},
+			];
+
+			const dailyTasks: DailyNoteTask[] = [];
+
+			mockApiClient.getTasks.mockResolvedValue(msftTasks);
+			mockApiClient.getDefaultListId.mockReturnValue('default-list-id');
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
+			mockDailyNoteManager.getNotePath.mockImplementation((date: string) => `Daily Notes/${date}.md`);
+			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
+			
+			// Mock the vault file check for ensureNoteExists
+			(mockDailyNoteManager as any).app.vault.getAbstractFileByPath = jest.fn()
+				.mockReturnValue({ path: 'Daily Notes/2024-01-15.md' });
+
+			const result = await synchronizer.syncMsftToObsidian();
+
+			expect(result.added).toBe(1);
+			expect(result.errors).toHaveLength(0);
+			// Should use due date (2024-01-15) instead of creation date (2024-01-01)
+			expect(mockDailyNoteManager.getNotePath).toHaveBeenCalledWith('2024-01-15');
+			expect(mockDailyNoteManager.addTaskToTodoSection).toHaveBeenCalledWith(
+				'Daily Notes/2024-01-15.md',
+				'Task with Due Date',
 				undefined
 			);
 		});
