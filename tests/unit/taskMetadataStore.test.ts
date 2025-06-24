@@ -50,12 +50,9 @@ describe('TaskMetadataStore', () => {
 			);
 		});
 
-		it('should load metadata on initialization', (done) => {
-			// Store is already created in beforeEach, wait a bit then check
-			setTimeout(() => {
-				expect(mockLoadData).toHaveBeenCalled();
-				done();
-			}, 10);
+		it('should load metadata on initialization', () => {
+			// The constructor should trigger loadData
+			expect(mockLoadData).toHaveBeenCalled();
 		});
 	});
 
@@ -255,7 +252,7 @@ describe('TaskMetadataStore', () => {
 	});
 
 	describe('persistence', () => {
-		it('should load existing metadata from storage', (done) => {
+		it('should load existing metadata from storage', async () => {
 			const existingData = {
 				'todo-integrator-task-metadata': [
 					['2024-01-15::Existing Task', {
@@ -272,35 +269,33 @@ describe('TaskMetadataStore', () => {
 			// Create new store to trigger load
 			const newStore = new TaskMetadataStore(mockPlugin, mockLogger);
 			
-			// Wait for async load
-			setTimeout(() => {
-				expect(newStore.getMsftTaskId('2024-01-15', 'Existing Task')).toBe('msft-existing');
-				expect(mockLogger.debug).toHaveBeenCalledWith(
-					'Loaded task metadata',
-					{ count: 1 }
-				);
-				done();
-			}, 10);
+			// Manually call loadMetadata and wait for it to complete
+			await (newStore as any).loadMetadata();
+			
+			expect(newStore.getMsftTaskId('2024-01-15', 'Existing Task')).toBe('msft-existing');
+			expect(mockLogger.debug).toHaveBeenCalledWith(
+				'Loaded task metadata',
+				{ count: 1 }
+			);
 		});
 
-		it('should handle load errors gracefully', (done) => {
+		it('should handle load errors gracefully', async () => {
 			mockLoadData.mockRejectedValue(new Error('Load failed'));
 
 			// Create new store to trigger load
 			const newStore = new TaskMetadataStore(mockPlugin, mockLogger);
 			
-			// Wait for async load
-			setTimeout(async () => {
-				expect(mockLogger.error).toHaveBeenCalledWith(
-					'Failed to load task metadata',
-					expect.any(Error)
-				);
+			// Manually call loadMetadata and wait for it to complete
+			await (newStore as any).loadMetadata();
+			
+			expect(mockLogger.error).toHaveBeenCalledWith(
+				'Failed to load task metadata',
+				expect.any(Error)
+			);
 
-				// Store should still be functional
-				await newStore.setMetadata('2024-01-15', 'New Task', 'msft-new');
-				expect(newStore.getMsftTaskId('2024-01-15', 'New Task')).toBe('msft-new');
-				done();
-			}, 10);
+			// Store should still be functional
+			await newStore.setMetadata('2024-01-15', 'New Task', 'msft-new');
+			expect(newStore.getMsftTaskId('2024-01-15', 'New Task')).toBe('msft-new');
 		});
 
 		it('should handle save errors gracefully', async () => {
