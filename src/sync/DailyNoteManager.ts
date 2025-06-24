@@ -119,7 +119,7 @@ export class DailyNoteManager {
 		}
 	}
 
-	async addTaskToTodoSection(filePath: string, taskTitle: string, taskSectionHeading?: string): Promise<void> {
+	async addTaskToTodoSection(filePath: string, taskTitle: string, taskSectionHeading?: string, isCompleted: boolean = false, completionDate?: string): Promise<void> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) {
@@ -160,8 +160,14 @@ export class DailyNoteManager {
 				}
 			}
 
-			// Format the task line
-			const taskLine = `- [ ] ${taskTitle}`;
+			// Format the task line with appropriate completion status
+			const checkbox = isCompleted ? '[x]' : '[ ]';
+			let taskLine = `- ${checkbox} ${taskTitle}`;
+			
+			// Add completion date if provided and task is completed
+			if (isCompleted && completionDate) {
+				taskLine += ` ✅ ${completionDate}`;
+			}
 
 			// Insert the task
 			lines.splice(insertionLine, 0, taskLine);
@@ -172,7 +178,9 @@ export class DailyNoteManager {
 				filePath, 
 				taskTitle, 
 				lineNumber: insertionLine,
-				sectionHeader
+				sectionHeader,
+				isCompleted,
+				completionDate
 			});
 
 		} catch (error) {
@@ -180,7 +188,7 @@ export class DailyNoteManager {
 				component: 'DailyNoteManager',
 				method: 'addTaskToTodoSection',
 				timestamp: new Date().toISOString(),
-				details: { filePath, taskTitle, taskSectionHeading, error },
+				details: { filePath, taskTitle, taskSectionHeading, isCompleted, completionDate, error },
 			};
 			this.logger.error('Failed to add task to Todo section', context);
 			throw error;
