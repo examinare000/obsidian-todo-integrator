@@ -125,8 +125,9 @@ export class TodoSynchronizer {
 				}
 			}
 
-			// Find new Microsoft tasks that don't exist in Obsidian
-			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks);
+			// Find new Microsoft tasks that don't exist in Obsidian (only incomplete tasks)
+			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
+				.filter(task => task.status !== 'completed');
 
 			// Add each new task to the appropriate daily note based on creation date
 			for (const task of newMsftTasks) {
@@ -139,29 +140,13 @@ export class TodoSynchronizer {
 					await this.ensureNoteExists(targetNotePath, taskStartDate);
 					
 					const cleanedTitle = this.cleanTaskTitle(task.title);
-					const isCompleted = task.status === 'completed';
 					
-					// Add task with appropriate completion status
-					if (isCompleted) {
-						// Add as completed task
-						const completionDate = task.completedDateTime 
-							? new Date(task.completedDateTime).toISOString().slice(0, 10)
-							: taskStartDate;
-						await this.dailyNoteManager.addTaskToTodoSection(
-							targetNotePath,
-							cleanedTitle,
-							this.taskSectionHeading,
-							true, // isCompleted
-							completionDate
-						);
-					} else {
-						// Add as incomplete task
-						await this.dailyNoteManager.addTaskToTodoSection(
-							targetNotePath,
-							cleanedTitle,
-							this.taskSectionHeading
-						);
-					}
+					// Add as incomplete task
+					await this.dailyNoteManager.addTaskToTodoSection(
+						targetNotePath,
+						cleanedTitle,
+						this.taskSectionHeading
+					);
 					
 					// Store metadata for this task
 					await this.metadataStore.setMetadata(taskStartDate, cleanedTitle, task.id);
@@ -172,8 +157,7 @@ export class TodoSynchronizer {
 						originalTitle: task.title,
 						cleanedTitle: cleanedTitle,
 						targetNote: targetNotePath,
-						startDate: taskStartDate,
-						isCompleted: isCompleted
+						startDate: taskStartDate
 					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
