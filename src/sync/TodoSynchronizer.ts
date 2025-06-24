@@ -299,6 +299,12 @@ export class TodoSynchronizer {
 						
 						// Validate and parse completedDateTime
 						if (msftTask.completedDateTime && msftTask.completedDateTime.trim() !== '') {
+							this.logger.debug('Processing completedDateTime', {
+								taskId: msftTask.id,
+								title: msftTask.title,
+								completedDateTime: msftTask.completedDateTime,
+								type: typeof msftTask.completedDateTime
+							});
 							try {
 								const parsedDate = new Date(msftTask.completedDateTime);
 								// Check if the date is valid
