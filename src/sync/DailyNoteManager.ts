@@ -418,11 +418,24 @@ export class DailyNoteManager {
 	}
 
 	getNotePath(date: string): string {
-		// Convert date to filename format
-		const formattedDate = this.formatDate(new Date(date), this.dateFormat);
-		// Security check: ensure path doesn't contain traversal attempts
-		const safePath = this.sanitizePath(`${this.dailyNotesPath}/${formattedDate}.md`);
-		return safePath;
+		try {
+			// Convert date to filename format
+			const parsedDate = new Date(date);
+			// Check if the date is valid
+			if (isNaN(parsedDate.getTime())) {
+				throw new Error(`Invalid date: ${date}`);
+			}
+			const formattedDate = this.formatDate(parsedDate, this.dateFormat);
+			// Security check: ensure path doesn't contain traversal attempts
+			const safePath = this.sanitizePath(`${this.dailyNotesPath}/${formattedDate}.md`);
+			return safePath;
+		} catch (error) {
+			this.logger.error('Failed to get note path', {
+				date,
+				error: error instanceof Error ? error.message : 'Unknown error'
+			});
+			throw error;
+		}
 	}
 
 	async updateTaskCompletion(

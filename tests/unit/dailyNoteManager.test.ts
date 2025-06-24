@@ -280,4 +280,52 @@ No tasks here.`;
 			);
 		});
 	});
+
+	describe('getNotePath', () => {
+		it('should generate correct path for valid date', () => {
+			const date = '2024-01-15';
+			const path = manager.getNotePath(date);
+			
+			expect(path).toBe('Daily Notes/2024-01-15.md');
+		});
+
+		it('should throw error for invalid date', () => {
+			const invalidDate = 'invalid-date-format';
+			
+			expect(() => manager.getNotePath(invalidDate)).toThrow('Invalid date: invalid-date-format');
+			expect(mockLogger.error).toHaveBeenCalledWith(
+				'Failed to get note path',
+				expect.objectContaining({
+					date: invalidDate,
+					error: 'Invalid date: invalid-date-format'
+				})
+			);
+		});
+
+		it('should throw error for empty string date', () => {
+			const emptyDate = '';
+			
+			expect(() => manager.getNotePath(emptyDate)).toThrow('Invalid date: ');
+			expect(mockLogger.error).toHaveBeenCalledWith(
+				'Failed to get note path',
+				expect.objectContaining({
+					date: emptyDate,
+					error: 'Invalid date: '
+				})
+			);
+		});
+
+		it('should throw error for null-like date string', () => {
+			const nullDate = 'null';
+			
+			expect(() => manager.getNotePath(nullDate)).toThrow('Invalid date: null');
+			expect(mockLogger.error).toHaveBeenCalledWith(
+				'Failed to get note path',
+				expect.objectContaining({
+					date: nullDate,
+					error: 'Invalid date: null'
+				})
+			);
+		});
+	});
 });
