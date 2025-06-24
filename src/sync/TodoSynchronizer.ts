@@ -139,11 +139,29 @@ export class TodoSynchronizer {
 					await this.ensureNoteExists(targetNotePath, taskStartDate);
 					
 					const cleanedTitle = this.cleanTaskTitle(task.title);
-					await this.dailyNoteManager.addTaskToTodoSection(
-						targetNotePath,
-						cleanedTitle,
-						this.taskSectionHeading
-					);
+					const isCompleted = task.status === 'completed';
+					
+					// Add task with appropriate completion status
+					if (isCompleted) {
+						// Add as completed task
+						const completionDate = task.completedDateTime 
+							? new Date(task.completedDateTime).toISOString().slice(0, 10)
+							: taskStartDate;
+						await this.dailyNoteManager.addTaskToTodoSection(
+							targetNotePath,
+							cleanedTitle,
+							this.taskSectionHeading,
+							true, // isCompleted
+							completionDate
+						);
+					} else {
+						// Add as incomplete task
+						await this.dailyNoteManager.addTaskToTodoSection(
+							targetNotePath,
+							cleanedTitle,
+							this.taskSectionHeading
+						);
+					}
 					
 					// Store metadata for this task
 					await this.metadataStore.setMetadata(taskStartDate, cleanedTitle, task.id);
@@ -154,7 +172,8 @@ export class TodoSynchronizer {
 						originalTitle: task.title,
 						cleanedTitle: cleanedTitle,
 						targetNote: targetNotePath,
-						startDate: taskStartDate
+						startDate: taskStartDate,
+						isCompleted: isCompleted
 					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
