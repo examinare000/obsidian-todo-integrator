@@ -151,19 +151,16 @@ export class TodoSynchronizer {
 					// Extract date from Microsoft Todo task - prefer due date, fallback to creation date
 					let taskDate: string;
 					if (task.dueDateTime) {
-						// Handle timezone properly for due dates
+						// Extract the date part from the dueDateTime
+						// Microsoft Todo uses UTC timestamps, but for all-day tasks,
+						// we should use the date part directly without timezone conversion
 						const dueDateTimeStr = task.dueDateTime.dateTime;
 						const timeZone = task.dueDateTime.timeZone;
 						
-						// If the datetime includes timezone info (ends with Z or +/-HH:MM), parse it properly
-						if (dueDateTimeStr.includes('T00:00:00') || dueDateTimeStr.includes('T') && timeZone) {
-							// For all-day tasks, use the date part directly without timezone conversion
-							taskDate = dueDateTimeStr.split('T')[0];
-						} else {
-							// For tasks with specific times, convert to local timezone
-							const dateObj = new Date(dueDateTimeStr);
-							taskDate = dateObj.toISOString().split('T')[0];
-						}
+						// For Microsoft Todo, tasks with specific times often appear as 15:00:00 UTC
+						// which represents an all-day task in the user's local timezone
+						// Always use the date part directly to avoid timezone conversion issues
+						taskDate = dueDateTimeStr.split('T')[0];
 						
 						this.logger.info('[DEBUG] Due date processing', {
 							taskId: task.id,
@@ -489,8 +486,9 @@ export class TodoSynchronizer {
 		for (const msftTask of msftTasks) {
 			const cleanedTitle = this.cleanTaskTitle(msftTask.title);
 			// Use due date if available, otherwise use creation date
+			// For due dates, use the date part directly to avoid timezone issues
 			const msftTaskDate = msftTask.dueDateTime 
-				? new Date(msftTask.dueDateTime.dateTime).toISOString().slice(0, 10)
+				? msftTask.dueDateTime.dateTime.split('T')[0]
 				: new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
 			
 			// Check if we have metadata for this task
