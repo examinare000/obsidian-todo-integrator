@@ -149,9 +149,23 @@ export class TodoSynchronizer {
 			for (const task of newMsftTasks) {
 				try {
 					// Extract date from Microsoft Todo task - prefer due date, fallback to creation date
-					const taskDate = task.dueDateTime 
-						? new Date(task.dueDateTime.dateTime).toISOString().slice(0, 10)
-						: new Date(task.createdDateTime).toISOString().slice(0, 10);
+					let taskDate: string;
+					if (task.dueDateTime) {
+						// Use local date from the dateTime string, ignoring timezone conversion
+						// This ensures tasks appear on the correct date in the user's local timezone
+						const dueDateTimeStr = task.dueDateTime.dateTime;
+						// Extract just the date part (YYYY-MM-DD) from the ISO string
+						taskDate = dueDateTimeStr.split('T')[0];
+						this.logger.debug('[DEBUG] Due date processing', {
+							taskId: task.id,
+							title: task.title,
+							dueDateTimeStr,
+							extractedDate: taskDate,
+							timeZone: task.dueDateTime.timeZone
+						});
+					} else {
+						taskDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
+					}
 					const targetNotePath = this.dailyNoteManager.getNotePath(taskDate);
 					
 					// Ensure the target note exists
@@ -487,44 +501,13 @@ export class TodoSynchronizer {
 
 	private async ensureNoteExists(notePath: string, date: string): Promise<void> {
 		try {
-			// Get access to DailyNoteManager's app instance
-			const app = (this.dailyNoteManager as any).app;
-			
-			const file = app.vault.getAbstractFileByPath(notePath);
-			if (file) {
-				this.logger.debug('Note already exists', { notePath });
-				return;
-			}
-
-			// Create the note with basic daily note structure
-			const dateObj = new Date(date);
-			const defaultContent = await this.generateDailyNoteContent(dateObj);
-			
-			await app.vault.create(notePath, defaultContent);
-			this.logger.info('Created daily note', { notePath, date });
+			// Use DailyNoteManager to create the note with template support
+			await this.dailyNoteManager.createDailyNote(date);
+			this.logger.info('Ensured daily note exists', { notePath, date });
 		} catch (error) {
 			this.logger.error('Failed to ensure note exists', { notePath, date, error });
 			throw error;
 		}
-	}
-
-	private async generateDailyNoteContent(date: Date): Promise<string> {
-		const dateString = date.toLocaleDateString('en-US', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		});
-
-		return `# Daily Note - ${dateString}
-
-## ToDo
-
-## Notes
-
-## Reflections
-
-`;
 	}
 
 	private normalizeTitle(title: string): string {
