@@ -162,6 +162,12 @@ export class DailyNoteManager {
 
 			// Format the task line
 			const taskLine = `- [ ] ${taskTitle}`;
+			
+			this.logger.info('[DEBUG] Creating task line', {
+				taskTitle,
+				taskLine,
+				insertionLine
+			});
 
 			// Insert the task
 			lines.splice(insertionLine, 0, taskLine);

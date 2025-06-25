@@ -96,7 +96,13 @@ export class TodoSynchronizer {
 			// Log Microsoft Todo tasks for debugging (temporarily using info level)
 			this.logger.info('[DEBUG] Microsoft Todo tasks retrieved', {
 				count: msftTasks.length,
-				tasks: msftTasks.map(t => ({ id: t.id, title: t.title }))
+				tasks: msftTasks.map(t => ({ 
+					id: t.id, 
+					title: t.title,
+					status: t.status,
+					dueDateTime: t.dueDateTime,
+					createdDateTime: t.createdDateTime
+				}))
 			});
 			
 			// Clean up Microsoft Todo task titles if they contain [todo:: tags
@@ -128,6 +134,16 @@ export class TodoSynchronizer {
 			// Find new Microsoft tasks that don't exist in Obsidian (only incomplete tasks)
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
 				.filter(task => task.status !== 'completed');
+			
+			this.logger.info('[DEBUG] New Microsoft tasks to add to Obsidian', {
+				count: newMsftTasks.length,
+				tasks: newMsftTasks.map(t => ({ 
+					id: t.id, 
+					title: t.title,
+					dueDateTime: t.dueDateTime,
+					createdDateTime: t.createdDateTime
+				}))
+			});
 
 			// Add each new task to the appropriate daily note based on due date (fallback to creation date)
 			for (const task of newMsftTasks) {
@@ -207,6 +223,16 @@ export class TodoSynchronizer {
 				if (task.completed || !task.startDate) return false;
 				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, task.title);
 				return !existingMsftId;
+			});
+			
+			this.logger.info('[DEBUG] New Obsidian tasks to add to Microsoft', {
+				count: newObsidianTasks.length,
+				tasks: newObsidianTasks.map(t => ({ 
+					title: t.title,
+					filePath: t.filePath,
+					startDate: t.startDate,
+					completed: t.completed
+				}))
 			});
 
 			// Get default list ID
