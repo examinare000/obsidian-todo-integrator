@@ -429,16 +429,20 @@ describe('TodoSynchronizer', () => {
 	});
 
 	describe('Completion Sync - Title Matching Fix', () => {
+		let mockMetadataStore: any;
+
 		beforeEach(() => {
-			// Setup task metadata store
-			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
-			synchronizer = new TodoSynchronizer(
-				mockApiClient,
-				mockDailyNoteManager,
-				metadataStore,
-				mockLogger,
-				'## TODO'
-			);
+			// Setup mock metadata store
+			mockMetadataStore = {
+				setMetadata: jest.fn(),
+				getMsftTaskId: jest.fn(),
+				getMetadataByDate: jest.fn(),
+				findByMsftTaskId: jest.fn(),
+				updateTitle: jest.fn(),
+				removeMetadata: jest.fn(),
+				cleanupOldMetadata: jest.fn(),
+				clearAll: jest.fn(),
+			};
 		});
 
 		it('should use cleaned title when looking up metadata for Obsidian tasks', async () => {
@@ -464,18 +468,19 @@ describe('TodoSynchronizer', () => {
 			mockApiClient.getTasks.mockResolvedValue([msftTask]);
 			mockApiClient.getDefaultListId.mockReturnValue('list-123');
 
-			// Pre-populate metadata with cleaned title
-			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
-			await metadataStore.setMetadata('2024-01-01', 'Test Task', 'msft-task-123');
+			// Mock metadata lookup to return the task ID
+			mockMetadataStore.getMsftTaskId.mockReturnValue('msft-task-123');
 			
-			// Create synchronizer with the metadata store
+			// Create synchronizer with the mocked metadata store
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
-				metadataStore,
 				mockLogger,
-				'## TODO'
+				'## TODO',
+				mockPlugin
 			);
+			// Replace the metadata store with our mock
+			(synchronizer as any).metadataStore = mockMetadataStore;
 
 			// Execute completion sync
 			const result = await synchronizer.syncCompletions();
@@ -509,18 +514,24 @@ describe('TodoSynchronizer', () => {
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
 			mockDailyNoteManager.updateTaskCompletion.mockResolvedValue();
 
-			// Pre-populate metadata with cleaned title
-			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
-			await metadataStore.setMetadata('2024-01-01', 'Test Task', 'msft-task-123');
+			// Mock metadata lookup
+			mockMetadataStore.findByMsftTaskId.mockReturnValue({
+				msftTaskId: 'msft-task-123',
+				date: '2024-01-01',
+				title: 'Test Task', // Cleaned title stored in metadata
+				lastSynced: Date.now(),
+			});
 			
-			// Create synchronizer with the metadata store
+			// Create synchronizer with the mocked metadata store
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
-				metadataStore,
 				mockLogger,
-				'## TODO'
+				'## TODO',
+				mockPlugin
 			);
+			// Replace the metadata store with our mock
+			(synchronizer as any).metadataStore = mockMetadataStore;
 
 			// Execute completion sync
 			const result = await synchronizer.syncCompletions();
@@ -556,17 +567,19 @@ describe('TodoSynchronizer', () => {
 				createdDateTime: '2024-01-02T00:00:00Z',
 			});
 
-			// Create a new metadata store to verify storage
-			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
+			// Mock metadata lookup to return undefined (no existing metadata)
+			mockMetadataStore.getMsftTaskId.mockReturnValue(undefined);
 			
-			// Create synchronizer with the metadata store
+			// Create synchronizer with the mocked metadata store
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
-				metadataStore,
 				mockLogger,
-				'## TODO'
+				'## TODO',
+				mockPlugin
 			);
+			// Replace the metadata store with our mock
+			(synchronizer as any).metadataStore = mockMetadataStore;
 
 			// Execute sync
 			const result = await synchronizer.syncObsidianToMsft();
@@ -580,8 +593,11 @@ describe('TodoSynchronizer', () => {
 			expect(result.added).toBe(1);
 
 			// Verify metadata was stored with cleaned title
-			const storedId = metadataStore.getMsftTaskId('2024-01-02', 'New Task');
-			expect(storedId).toBe('new-msft-task-456');
+			expect(mockMetadataStore.setMetadata).toHaveBeenCalledWith(
+				'2024-01-02',
+				'New Task', // Cleaned title without [todo::xyz789]
+				'new-msft-task-456'
+			);
 		});
 	});
 });
