@@ -6,7 +6,7 @@ import { LOG_LEVELS } from '../constants';
 export class SimpleLogger implements Logger {
 	private currentLevel: 'debug' | 'info' | 'warn' | 'error' = 'info';
 	private logHistory: Array<{ level: string; message: string; timestamp: string; context?: any }> = [];
-	private maxHistorySize = 100;
+	private maxHistorySize = 10000;
 
 	constructor(level: 'debug' | 'info' | 'warn' | 'error' = 'info') {
 		this.currentLevel = level;
