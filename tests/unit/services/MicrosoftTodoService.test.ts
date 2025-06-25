@@ -21,7 +21,9 @@ describe('MicrosoftTodoService', () => {
 			info: jest.fn(),
 			warn: jest.fn(),
 			error: jest.fn(),
-		};
+			setLogLevel: jest.fn(),
+			exportLogs: jest.fn(),
+		} as any;
 
 		// Create mock API client
 		mockApiClient = {
@@ -224,18 +226,14 @@ describe('MicrosoftTodoService', () => {
 				createdDateTime: '2024-01-01T00:00:00Z',
 			};
 
-			mockApiClient.updateTaskTitle.mockResolvedValue(updatedTask);
-			mockApiClient.getTasks.mockResolvedValue([{
-				id: 'task-1',
-				title: 'Original Title',
-				status: 'notStarted',
-				createdDateTime: '2024-01-01T00:00:00Z',
-			}]);
+			mockApiClient.updateTaskTitle.mockResolvedValue(undefined);
+			mockApiClient.getTasks.mockResolvedValue([updatedTask]);
 
 			const result = await service.updateTask('task-1', { title: 'Updated Title' });
 
 			expect(result).toEqual(updatedTask);
 			expect(mockApiClient.updateTaskTitle).toHaveBeenCalledWith('default-list-id', 'task-1', 'Updated Title');
+			expect(mockApiClient.getTasks).toHaveBeenCalledWith('default-list-id');
 			expect(mockLogger.info).toHaveBeenCalledWith('Task updated in Microsoft Todo', { taskId: 'task-1' });
 		});
 

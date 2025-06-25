@@ -94,8 +94,15 @@ export class MicrosoftTodoService implements TodoService {
 
 			// Currently only title update is supported by the API client
 			if (updates.title) {
-				const updatedTask = await this.apiClient.updateTaskTitle(listId, taskId, updates.title);
+				await this.apiClient.updateTaskTitle(listId, taskId, updates.title);
 				this.logger.info('Task updated in Microsoft Todo', { taskId });
+				
+				// Fetch and return the updated task
+				const tasks = await this.apiClient.getTasks(listId);
+				const updatedTask = tasks.find(t => t.id === taskId);
+				if (!updatedTask) {
+					throw new Error(`Task ${taskId} not found after update`);
+				}
 				return updatedTask;
 			}
 
