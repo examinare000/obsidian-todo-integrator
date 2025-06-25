@@ -53,7 +53,6 @@ export class ObsidianTodoParser {
 
 				// If section not found, return empty array
 				if (sectionStartIndex === -1) {
-					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
 					return [];
 				}
 			}
@@ -112,8 +111,11 @@ export class ObsidianTodoParser {
 				}
 			}
 
-			const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
-			this.logger.debug(`Parsed ${tasks.length} tasks from ${filePath}${sectionInfo}`);
+			// Only log if there are tasks
+			if (tasks.length > 0) {
+				const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
+				this.logger.debug(`Parsed ${tasks.length} tasks from ${filePath}${sectionInfo}`);
+			}
 			return tasks;
 		} catch (error) {
 			const errorMessage = this.errorHandler.handleFileError(error);

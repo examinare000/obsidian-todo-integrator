@@ -233,7 +233,6 @@ export class DailyNoteManager {
 
 				// If section not found, return empty array
 				if (sectionStartIndex === -1) {
-					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
 					return [];
 				}
 			}
@@ -269,12 +268,15 @@ export class DailyNoteManager {
 				}
 			}
 
-			const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
-			this.logger.debug('Parsed daily note tasks', { 
-				filePath, 
-				taskCount: tasks.length,
-				section: sectionInfo
-			});
+			// Only log if there are tasks
+			if (tasks.length > 0) {
+				const sectionInfo = taskSectionHeading ? ` in section "${taskSectionHeading}"` : '';
+				this.logger.debug('Parsed daily note tasks', { 
+					filePath, 
+					taskCount: tasks.length,
+					section: sectionInfo
+				});
+			}
 
 			return tasks;
 
