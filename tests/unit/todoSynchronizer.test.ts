@@ -428,11 +428,11 @@ describe('TodoSynchronizer', () => {
 		});
 	});
 
-	describe('Completion Sync - Title Matching Fix', () => {
+	describe('タスク完了状態の双方向同期 - 異なるフォーマットのタスクでも同期される', () => {
 		let mockMetadataStore: any;
 
 		beforeEach(() => {
-			// Setup mock metadata store
+			// モックメタデータストアをセットアップ
 			mockMetadataStore = {
 				setMetadata: jest.fn(),
 				getMsftTaskId: jest.fn(),
@@ -445,33 +445,38 @@ describe('TodoSynchronizer', () => {
 			};
 		});
 
-		it('should use cleaned title when looking up metadata for Obsidian tasks', async () => {
-			// Setup: Completed Obsidian task with [todo::ID] pattern
+		it('Obsidianで内部ID付きタスクを完了にするとMicrosoft To-Doでも完了になる', async () => {
+			// ビジネスシナリオ: 
+			// ユーザーがObsidianでタスクに[todo::abc123]のような内部管理IDを付けて管理している
+			// このIDはObsidian内でのタスク追跡用で、Microsoft To-Do側には表示されない
+			// ユーザーがObsidianでタスクを完了にした時、Microsoft To-Do側でも完了状態になることを期待する
+			
+			// Given: Obsidianに内部ID付きの完了済みタスク
 			const obsidianTask = {
-				title: 'Test Task [todo::abc123]',
+				title: '買い物リスト [todo::abc123]',  // 内部IDを含むタスクタイトル
 				completed: true,
 				startDate: '2024-01-01',
 				filePath: 'daily/2024-01-01.md',
 				lineNumber: 10,
 			};
 
-			// Microsoft task without the [todo::ID] pattern
+			// And: Microsoft To-Doに対応するタスク（IDなし）
 			const msftTask: TodoTask = {
 				id: 'msft-task-123',
-				title: 'Test Task',
+				title: '買い物リスト',  // Microsoft側にはIDが表示されない
 				status: 'notStarted',
 				createdDateTime: '2024-01-01T00:00:00Z',
 			};
 
-			// Mock methods
+			// モックメソッドの設定
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
 			mockApiClient.getTasks.mockResolvedValue([msftTask]);
 			mockApiClient.getDefaultListId.mockReturnValue('list-123');
 
-			// Mock metadata lookup to return the task ID
+			// And: メタデータストアがIDなしのタイトルでタスクを管理している
 			mockMetadataStore.getMsftTaskId.mockReturnValue('msft-task-123');
 			
-			// Create synchronizer with the mocked metadata store
+			// When: 完了状態を同期する
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
@@ -479,50 +484,52 @@ describe('TodoSynchronizer', () => {
 				'## TODO',
 				mockPlugin
 			);
-			// Replace the metadata store with our mock
 			(synchronizer as any).metadataStore = mockMetadataStore;
 
-			// Execute completion sync
 			const result = await synchronizer.syncCompletions();
 
-			// Verify task was marked as completed in Microsoft
+			// Then: Microsoft To-Do側でもタスクが完了になる
 			expect(mockApiClient.completeTask).toHaveBeenCalledWith('list-123', 'msft-task-123');
 			expect(result.completed).toBe(1);
 		});
 
-		it('should match daily tasks using cleaned title from metadata', async () => {
-			// Setup: Microsoft completed task
+		it('Microsoft To-Doで完了にしたタスクがObsidianでも完了になる（内部ID付きでも）', async () => {
+			// ビジネスシナリオ:
+			// ユーザーがMicrosoft To-Doアプリでタスクを完了にした
+			// Obsidian側では同じタスクに内部管理IDが付いているが、それでも正しく完了状態が反映されることを期待する
+			
+			// Given: Microsoft To-Doで完了済みのタスク
 			const msftTask: TodoTask = {
 				id: 'msft-task-123',
-				title: 'Test Task',
+				title: 'プロジェクト企画書作成',
 				status: 'completed',
 				completedDateTime: '2024-01-01T10:00:00Z',
 				createdDateTime: '2024-01-01T00:00:00Z',
 			};
 
-			// Obsidian task with [todo::ID] pattern
+			// And: Obsidianに対応する未完了タスク（内部ID付き）
 			const obsidianTask = {
-				title: 'Test Task [todo::abc123]',
+				title: 'プロジェクト企画書作成 [todo::proj-001]',
 				completed: false,
 				startDate: '2024-01-01',
 				filePath: 'daily/2024-01-01.md',
 				lineNumber: 10,
 			};
 
-			// Mock methods
+			// モックメソッドの設定
 			mockApiClient.getTasks.mockResolvedValue([msftTask]);
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
 			mockDailyNoteManager.updateTaskCompletion.mockResolvedValue();
 
-			// Mock metadata lookup
+			// And: メタデータストアがIDなしのタイトルでタスクを管理している
 			mockMetadataStore.findByMsftTaskId.mockReturnValue({
 				msftTaskId: 'msft-task-123',
 				date: '2024-01-01',
-				title: 'Test Task', // Cleaned title stored in metadata
+				title: 'プロジェクト企画書作成', // IDなしのクリーンなタイトル
 				lastSynced: Date.now(),
 			});
 			
-			// Create synchronizer with the mocked metadata store
+			// When: 完了状態を同期する
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
@@ -530,13 +537,11 @@ describe('TodoSynchronizer', () => {
 				'## TODO',
 				mockPlugin
 			);
-			// Replace the metadata store with our mock
 			(synchronizer as any).metadataStore = mockMetadataStore;
 
-			// Execute completion sync
 			const result = await synchronizer.syncCompletions();
 
-			// Verify task was marked as completed in Obsidian
+			// Then: Obsidian側でもタスクが完了になる
 			expect(mockDailyNoteManager.updateTaskCompletion).toHaveBeenCalledWith(
 				'daily/2024-01-01.md',
 				10,
@@ -546,31 +551,36 @@ describe('TodoSynchronizer', () => {
 			expect(result.completed).toBe(1);
 		});
 
-		it('should store metadata with cleaned title when creating from Obsidian', async () => {
-			// Setup: New Obsidian task with [todo::ID] pattern
+		it('新規タスク作成時は内部IDを除外してメタデータに保存される', async () => {
+			// ビジネスシナリオ:
+			// ユーザーがObsidianで新しいタスクを作成し、内部管理用のIDを付けた
+			// このタスクがMicrosoft To-Doに同期される際、メタデータは正しく管理される必要がある
+			// 将来の完了状態同期のため、IDなしのクリーンなタイトルでメタデータを保存する
+			
+			// Given: Obsidianに内部ID付きの新規タスク
 			const obsidianTask = {
-				title: 'New Task [todo::xyz789]',
+				title: '週次レポート作成 [todo::weekly-report-2024]',
 				completed: false,
 				startDate: '2024-01-02',
 				filePath: 'daily/2024-01-02.md',
 				lineNumber: 5,
 			};
 
-			// Mock methods
+			// And: Microsoft To-Doには既存タスクがない
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
-			mockApiClient.getTasks.mockResolvedValue([]); // No existing tasks
+			mockApiClient.getTasks.mockResolvedValue([]);
 			mockApiClient.getDefaultListId.mockReturnValue('list-123');
 			mockApiClient.createTaskWithStartDate.mockResolvedValue({
 				id: 'new-msft-task-456',
-				title: 'New Task [todo::xyz789]',
+				title: '週次レポート作成 [todo::weekly-report-2024]',
 				status: 'notStarted',
 				createdDateTime: '2024-01-02T00:00:00Z',
 			});
 
-			// Mock metadata lookup to return undefined (no existing metadata)
+			// And: メタデータストアには既存の情報がない
 			mockMetadataStore.getMsftTaskId.mockReturnValue(undefined);
 			
-			// Create synchronizer with the mocked metadata store
+			// When: タスクを同期する
 			synchronizer = new TodoSynchronizer(
 				mockApiClient,
 				mockDailyNoteManager,
@@ -578,24 +588,22 @@ describe('TodoSynchronizer', () => {
 				'## TODO',
 				mockPlugin
 			);
-			// Replace the metadata store with our mock
 			(synchronizer as any).metadataStore = mockMetadataStore;
 
-			// Execute sync
 			const result = await synchronizer.syncObsidianToMsft();
 
-			// Verify task was created
+			// Then: Microsoft To-Doにタスクが作成される（IDも含めて）
 			expect(mockApiClient.createTaskWithStartDate).toHaveBeenCalledWith(
 				'list-123',
-				'New Task [todo::xyz789]',
+				'週次レポート作成 [todo::weekly-report-2024]',  // フルタイトルで作成
 				'2024-01-02'
 			);
 			expect(result.added).toBe(1);
 
-			// Verify metadata was stored with cleaned title
+			// And: メタデータはIDなしのクリーンなタイトルで保存される
 			expect(mockMetadataStore.setMetadata).toHaveBeenCalledWith(
 				'2024-01-02',
-				'New Task', // Cleaned title without [todo::xyz789]
+				'週次レポート作成',  // 内部IDを除外したタイトル
 				'new-msft-task-456'
 			);
 		});

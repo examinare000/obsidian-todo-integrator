@@ -125,18 +125,18 @@ export class TodoSynchronizer {
 			// Add each new task to the appropriate daily note based on due date (fallback to creation date)
 			for (const task of newMsftTasks) {
 				try {
-					// Extract date from Microsoft Todo task - prefer due date, fallback to creation date
+					// Microsoft Todoタスクから日付を抽出 - 期日を優先、なければ作成日を使用
 					let taskDate: string;
 					if (task.dueDateTime) {
-						// Extract the date part from the dueDateTime
-						// Microsoft Todo uses UTC timestamps, but for all-day tasks,
-						// we should use the date part directly without timezone conversion
+						// dueDateTimeから日付部分を抽出
+						// Microsoft TodoはUTCタイムスタンプを使用するが、終日タスクの場合は
+						// タイムゾーン変換をせずに日付部分を直接使用する必要がある
 						const dueDateTimeStr = task.dueDateTime.dateTime;
 						const timeZone = task.dueDateTime.timeZone;
 						
-						// For Microsoft Todo, tasks with specific times often appear as 15:00:00 UTC
-						// which represents an all-day task in the user's local timezone
-						// Always use the date part directly to avoid timezone conversion issues
+						// Microsoft Todoでは、特定時刻のあるタスクは15:00:00 UTCとして表示されることが多い
+						// これはユーザーのローカルタイムゾーンでの終日タスクを表している
+						// タイムゾーン変換の問題を避けるため、常に日付部分を直接使用
 						taskDate = dueDateTimeStr.split('T')[0];
 						
 						this.logger.info('[DEBUG] Due date processing', {
@@ -152,12 +152,12 @@ export class TodoSynchronizer {
 					}
 					const targetNotePath = this.dailyNoteManager.getNotePath(taskDate);
 					
-					// Ensure the target note exists
+					// ターゲットノートが存在することを確認
 					await this.ensureNoteExists(targetNotePath, taskDate);
 					
 					const cleanedTitle = this.cleanTaskTitle(task.title);
 					
-					// Add as incomplete task
+					// 未完了タスクとして追加
 					this.logger.info('[DEBUG] Adding task to Obsidian', {
 						targetNotePath,
 						cleanedTitle,
@@ -172,7 +172,7 @@ export class TodoSynchronizer {
 						this.taskSectionHeading
 					);
 					
-					// Store metadata for this task
+					// このタスクのメタデータを保存
 					await this.metadataStore.setMetadata(taskDate, cleanedTitle, task.id);
 					
 					added++;
@@ -216,13 +216,20 @@ export class TodoSynchronizer {
 		let added = 0;
 
 		try {
-			// Get all daily note tasks from all files
+			// 全てのファイルからデイリーノートタスクを取得
 			const allDailyTasks = await this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading);
 
-			// Find new Obsidian tasks (those without metadata)
+			// 新規Obsidianタスクを検索（メタデータがないもの）
 			const newObsidianTasks = allDailyTasks.filter(task => {
 				if (task.completed || !task.startDate) return false;
-				// Use cleaned title for metadata lookup
+				// メタデータ検索時にクリーンなタイトルを使用して既存タスクを確認
+				// これにより、ユーザーが[todo::ID]を追加/削除しても重複作成を防げる
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. IDを含む完全なタイトルで比較
+				//    → 却下理由: 既存タスクにIDを追加した時に重複が作成される
+				// 2. タスク内容のハッシュで重複排除
+				//    → 却下理由: 現在のデータモデルにタスク内容が含まれていない
 				const cleanedTitle = this.cleanTaskTitle(task.title);
 				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, cleanedTitle);
 				return !existingMsftId;
@@ -238,21 +245,21 @@ export class TodoSynchronizer {
 				}))
 			});
 
-			// Get default list ID
+			// デフォルトリストIDを取得
 			const listId = this.apiClient.getDefaultListId();
 			if (!listId) {
-				throw new Error('No default Microsoft Todo list configured');
+				throw new Error('デフォルトのMicrosoft Todoリストが設定されていません');
 			}
 
-			// Get existing Microsoft tasks to check for duplicates
+			// 重複チェック用に既存のMicrosoftタスクを取得
 			const existingMsftTasks = await this.apiClient.getTasks();
 			const existingTitles = new Set(
 				existingMsftTasks.map(task => this.normalizeTitle(this.cleanTaskTitle(task.title)))
 			);
 
-			// Create each new task in Microsoft Todo with start date
+			// 各新規タスクを開始日付きでMicrosoft Todoに作成
 			for (const task of newObsidianTasks) {
-				// Skip if task already exists in Microsoft Todo (by normalized title)
+				// 正規化したタイトルでMicrosoft Todoに既に存在する場合はスキップ
 				if (existingTitles.has(this.normalizeTitle(task.title))) {
 					this.logger.info('[DEBUG] Skipping task - already exists in Microsoft Todo', {
 						taskTitle: task.title
@@ -266,8 +273,17 @@ export class TodoSynchronizer {
 						task.startDate
 					);
 					
-					// Store metadata for this task
-					// Use cleaned title for consistency with how we look it up
+					// このタスクのメタデータを保存
+					// クリーンなタイトル（[todo::ID]なし）で保存して一貫した検索を保証
+					// これは完了状態同期が正しく動作するために重要
+					//
+					// 検討したが採用しなかった代替案:
+					// 1. 元のタイトルで保存し、検索時にクリーン化
+					//    → 却下理由: 後でIDが追加/削除された時にタスクが見つからなくなる
+					// 2. 各タスクに一意のハッシュを生成
+					//    → 却下理由: 複雑性が増し、手動でのタイトル編集に対応できない
+					// 3. タスク内容を追加の照合条件として使用
+					//    → 却下理由: 現在のデータモデルにタスク内容が含まれていない
 					if (task.startDate) {
 						const cleanedTitle = this.cleanTaskTitle(task.title);
 						await this.metadataStore.setMetadata(task.startDate, cleanedTitle, createdTask.id);
@@ -302,7 +318,7 @@ export class TodoSynchronizer {
 	}
 
 	async syncCompletions(): Promise<{ completed: number; errors: string[] }> {
-		this.logger.info('Syncing completion status');
+		this.logger.info('完了状態を同期中');
 		const errors: string[] = [];
 		let completed = 0;
 
@@ -312,14 +328,14 @@ export class TodoSynchronizer {
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 
-			// Create lookup maps
+			// 検索用マップを作成
 			const msftTasksById = new Map(msftTasks.map(task => [task.id, task]));
 
 			const listId = this.apiClient.getDefaultListId();
 
-			// Sync Microsoft completions to Obsidian
+			// Microsoft完了タスクをObsidianに同期
 			for (const msftTask of msftTasks) {
-				// Find matching Obsidian task using metadata
+				// メタデータを使用して対応するObsidianタスクを検索
 				const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
 				if (!metadata) {
 					this.logger.debug('No metadata found for Microsoft task', {
@@ -330,8 +346,17 @@ export class TodoSynchronizer {
 					continue;
 				}
 				
-				// Find the actual task in daily notes
-				// Note: metadata.title is already cleaned, so we need to clean the daily task title too
+				// デイリーノートから実際のタスクを検索
+				// メタデータのクリーンなタイトルと照合するためObsidianタスクのタイトルをクリーン化
+				// これによりObsidianタスクに[todo::ID]があってもMicrosoft → Obsidian同期が動作する
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. cleanTaskTitle()の代わりにnormalizeTitle()を使用
+				//    → 却下理由: normalizeTitle は小文字化のみで[todo::ID]パターンを除去しない
+				// 2. メタデータにタスクの行番号を保存
+				//    → 却下理由: ユーザーがファイルを編集すると行番号が変わり、メタデータが古くなる
+				// 3. あいまい一致や正規表現パターンを使用
+				//    → 却下理由: 間違ったタスクにマッチしてデータ破損を引き起こす可能性がある
 				const dailyTask = allDailyTasks.find(task => 
 					task.startDate === metadata.date && 
 					this.cleanTaskTitle(task.title) === metadata.title
@@ -372,12 +397,24 @@ export class TodoSynchronizer {
 				}
 			}
 
-			// Sync Obsidian completions to Microsoft
+			// Obsidian完了タスクをMicrosoftに同期
 			for (const dailyTask of allDailyTasks) {
 				if (!dailyTask.completed || !dailyTask.startDate) continue;
 				
-				// Look up Microsoft task ID from metadata
-				// Note: We need to use the cleaned title for metadata lookup since that's how it was stored
+				// メタデータからMicrosoftタスクIDを検索
+				// メタデータはクリーンなタイトルで保存されているため、検索前にタイトルをクリーン化
+				// これによりObsidianでの[todo::ID]の有無に関わらず一貫した照合が可能
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. メタデータに元のタイトルとクリーンなタイトルの両方を保存
+				//    → 却下理由: ストレージの複雑性が増し、既存ユーザーのマイグレーションが必要
+				// 2. メタデータを元のタイトルで保存し、比較時にクリーン化
+				//    → 却下理由: 検索のたびにクリーン化が必要でパフォーマンスに影響
+				//    → また、同じタスクにIDが追加/削除された時に重複エントリが作成される
+				// 3. Microsoft To-DoのタイトルからIDを削除
+				//    → 却下理由: ユーザーが他のワークフローでMicrosoft To-DoでIDを見たい場合がある
+				// 4. タイトルに埋め込む代わりに別のIDフィールドを使用
+				//    → 却下理由: 既存のタスク形式に大幅な変更が必要
 				const cleanedTitle = this.cleanTaskTitle(dailyTask.title);
 				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, cleanedTitle);
 				if (!msftTaskId) {
