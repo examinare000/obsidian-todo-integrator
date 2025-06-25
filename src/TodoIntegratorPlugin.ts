@@ -552,4 +552,8 @@ export class TodoIntegratorPlugin extends Plugin {
 			new Notice('Logout failed');
 		}
 	}
+
+	getLogger(): Logger {
+		return this.logger;
+	}
 }
