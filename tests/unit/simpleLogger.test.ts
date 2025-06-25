@@ -68,17 +68,17 @@ describe('SimpleLogger', () => {
 		});
 
 		it('should respect max history size', () => {
-			// Default max history is 100
-			for (let i = 0; i < 150; i++) {
+			// Max history is now 10000
+			for (let i = 0; i < 10050; i++) {
 				logger.info(`Message ${i}`);
 			}
 			
 			const exported = logger.exportLogs();
 			const lines = exported.split('\n').filter(line => line.length > 0);
 			
-			expect(lines).toHaveLength(100);
+			expect(lines).toHaveLength(10000);
 			expect(lines[0]).toContain('Message 50'); // First 50 should be dropped
-			expect(lines[99]).toContain('Message 149'); // Last should be 149
+			expect(lines[9999]).toContain('Message 10049'); // Last should be 10049
 		});
 
 		it('should handle context objects correctly', () => {
@@ -93,6 +93,23 @@ describe('SimpleLogger', () => {
 			expect(exported).toContain('"userId":123');
 			expect(exported).toContain('"action":"sync"');
 			expect(exported).toContain('"token":"[MASKED]"');
+		});
+
+		it('should handle batch processing efficiently', () => {
+			// Test that batch processing works correctly
+			for (let i = 0; i < 250; i++) {
+				logger.info(`Batch test ${i}`);
+			}
+			
+			const exported = logger.exportLogs();
+			const lines = exported.split('\n').filter(line => line.length > 0);
+			
+			expect(lines).toHaveLength(250);
+			// Verify first, middle, and last messages
+			expect(lines[0]).toContain('Batch test 0');
+			expect(lines[99]).toContain('Batch test 99');
+			expect(lines[100]).toContain('Batch test 100');
+			expect(lines[249]).toContain('Batch test 249');
 		});
 
 		it('should maintain log history after log level changes', () => {

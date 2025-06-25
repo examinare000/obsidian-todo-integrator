@@ -123,12 +123,20 @@ export class SimpleLogger implements Logger {
 	}
 
 	exportLogs(): string {
-		return this.logHistory
-			.map(entry => {
+		const result: string[] = [];
+		const batchSize = 100;
+		
+		// Process logs in batches to avoid performance issues with large arrays
+		for (let i = 0; i < this.logHistory.length; i += batchSize) {
+			const batch = this.logHistory.slice(i, i + batchSize);
+			const batchLines = batch.map(entry => {
 				const contextStr = entry.context ? ` | Context: ${JSON.stringify(entry.context)}` : '';
 				return `${entry.timestamp} [${entry.level.toUpperCase()}] ${entry.message}${contextStr}`;
-			})
-			.join('\n');
+			});
+			result.push(...batchLines);
+		}
+		
+		return result.join('\n');
 	}
 
 	/**
