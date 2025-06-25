@@ -47,7 +47,12 @@ export class TodoIntegratorPlugin extends Plugin {
 		
 		// Initialize logger with correct log level
 		this.logger = new SimpleLogger(logLevel);
-		this.logger.info('ToDo Integrator plugin loading...');
+		
+		// Get version from manifest
+		const manifestPath = `${this.manifest.dir}/manifest.json`;
+		const version = this.manifest.version;
+		
+		this.logger.info(`ToDo Integrator plugin loading... (version: ${version})`);
 
 		// Initialize error handler
 		this.errorHandler = new ErrorHandler(this.logger);
@@ -98,7 +103,7 @@ export class TodoIntegratorPlugin extends Plugin {
 			}
 		}
 
-		this.logger.info('ToDo Integrator plugin loaded successfully');
+		this.logger.info(`ToDo Integrator plugin loaded successfully (version: ${this.manifest.version})`);
 	}
 
 	onunload(): void {
