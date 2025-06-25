@@ -144,6 +144,14 @@ export class TodoSynchronizer {
 					const cleanedTitle = this.cleanTaskTitle(task.title);
 					
 					// Add as incomplete task
+					this.logger.info('[DEBUG] Adding task to Obsidian', {
+						targetNotePath,
+						cleanedTitle,
+						originalTitle: task.title,
+						taskId: task.id,
+						taskDate
+					});
+					
 					await this.dailyNoteManager.addTaskToTodoSection(
 						targetNotePath,
 						cleanedTitle,
