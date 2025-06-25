@@ -106,30 +106,7 @@ export class TodoSynchronizer {
 			});
 			
 			// Clean up Microsoft Todo task titles if they contain [todo:: tags
-			const listId = this.apiClient.getDefaultListId();
-			if (listId) {
-				for (const task of msftTasks) {
-					if (task.title.includes('[todo::')) {
-						const cleanedTitle = this.cleanTaskTitle(task.title);
-						try {
-							await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
-							this.logger.info('[DEBUG] Cleaned Microsoft Todo task title', {
-								taskId: task.id,
-								originalTitle: task.title,
-								cleanedTitle: cleanedTitle
-							});
-							// Update the task object with cleaned title
-							task.title = cleanedTitle;
-						} catch (error) {
-							this.logger.error('Failed to clean Microsoft Todo task title', {
-								taskId: task.id,
-								title: task.title,
-								error
-							});
-						}
-					}
-				}
-			}
+			await this.cleanMicrosoftTodoTitles(msftTasks)
 
 			// Find new Microsoft tasks that don't exist in Obsidian (only incomplete tasks)
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
@@ -351,61 +328,26 @@ export class TodoSynchronizer {
 
 				const msftCompleted = msftTask.status === 'completed';
 				
-				if (msftCompleted && !dailyTask.completed) {
-					try {
-						let completionDate: string;
-						
-						// Validate and parse completedDateTime
-						if (msftTask.completedDateTime && msftTask.completedDateTime.trim() !== '') {
-							this.logger.debug('Processing completedDateTime', {
-								taskId: msftTask.id,
-								title: msftTask.title,
-								completedDateTime: msftTask.completedDateTime,
-								type: typeof msftTask.completedDateTime
-							});
-							try {
-								const parsedDate = new Date(msftTask.completedDateTime);
-								// Check if the date is valid
-								if (!isNaN(parsedDate.getTime())) {
-									completionDate = parsedDate.toISOString().slice(0, 10);
-								} else {
-									// Invalid date, use current date
-									this.logger.warn('Invalid completedDateTime format, using current date', {
-										taskId: msftTask.id,
-										completedDateTime: msftTask.completedDateTime
-									});
-									completionDate = new Date().toISOString().slice(0, 10);
-								}
-							} catch (dateError) {
-								// Date parsing failed, use current date
-								this.logger.warn('Failed to parse completedDateTime, using current date', {
-									taskId: msftTask.id,
-									completedDateTime: msftTask.completedDateTime,
-									error: dateError
-								});
-								completionDate = new Date().toISOString().slice(0, 10);
-							}
-						} else {
-							// No completedDateTime provided, use current date
-							completionDate = new Date().toISOString().slice(0, 10);
-						}
-
-						await this.dailyNoteManager.updateTaskCompletion(
-							dailyTask.filePath!,
-							dailyTask.lineNumber,
-							true,
-							completionDate
-						);
-						completed++;
-						this.logger.debug('Marked Obsidian task as completed from Microsoft', {
-							taskId: msftTask.id,
-							title: msftTask.title,
-							filePath: dailyTask.filePath
-						});
-					} catch (error) {
-						const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-						errors.push(errorMsg);
-					}
+				if (!msftCompleted || dailyTask.completed) continue;
+				
+				try {
+					const completionDate = this.parseCompletionDate(msftTask);
+					
+					await this.dailyNoteManager.updateTaskCompletion(
+						dailyTask.filePath!,
+						dailyTask.lineNumber,
+						true,
+						completionDate
+					);
+					completed++;
+					this.logger.debug('Marked Obsidian task as completed from Microsoft', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						filePath: dailyTask.filePath
+					});
+				} catch (error) {
+					const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+					errors.push(errorMsg);
 				}
 			}
 
@@ -419,23 +361,23 @@ export class TodoSynchronizer {
 				
 				const matchingMsftTask = msftTasksById.get(msftTaskId);
 
-				if (matchingMsftTask && matchingMsftTask.status !== 'completed') {
-					try {
-						if (!listId) {
-							throw new Error('No default list ID available');
-						}
-
-						await this.apiClient.completeTask(listId, matchingMsftTask.id);
-						completed++;
-						this.logger.debug('Marked Microsoft task as completed from Obsidian', {
-							taskId: matchingMsftTask.id,
-							title: dailyTask.title,
-							filePath: dailyTask.filePath
-						});
-					} catch (error) {
-						const errorMsg = `Failed to complete Microsoft task "${dailyTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-						errors.push(errorMsg);
+				if (!matchingMsftTask || matchingMsftTask.status === 'completed') continue;
+				
+				try {
+					if (!listId) {
+						throw new Error('No default list ID available');
 					}
+
+					await this.apiClient.completeTask(listId, matchingMsftTask.id);
+					completed++;
+					this.logger.debug('Marked Microsoft task as completed from Obsidian', {
+						taskId: matchingMsftTask.id,
+						title: dailyTask.title,
+						filePath: dailyTask.filePath
+					});
+				} catch (error) {
+					const errorMsg = `Failed to complete Microsoft task "${dailyTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+					errors.push(errorMsg);
 				}
 			}
 
@@ -455,10 +397,10 @@ export class TodoSynchronizer {
 
 		for (const obsidianTask of obsidianTasks) {
 			// Skip if we already have metadata for this task
-			if (obsidianTask.startDate) {
-				const existingMsftId = this.metadataStore.getMsftTaskId(obsidianTask.startDate, obsidianTask.title);
-				if (existingMsftId) continue;
-			}
+			if (!obsidianTask.startDate) continue;
+			
+			const existingMsftId = this.metadataStore.getMsftTaskId(obsidianTask.startDate, obsidianTask.title);
+			if (existingMsftId) continue;
 
 			for (const msftTask of msftTasks) {
 				// Simple title matching for now
@@ -521,8 +463,72 @@ export class TodoSynchronizer {
 		}
 	}
 
+	private async cleanMicrosoftTodoTitles(tasks: TodoTask[]): Promise<void> {
+		const listId = this.apiClient.getDefaultListId();
+		if (!listId) return;
+
+		for (const task of tasks) {
+			if (!task.title.includes('[todo::')) continue;
+			
+			const cleanedTitle = this.cleanTaskTitle(task.title);
+			try {
+				await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
+				this.logger.info('[DEBUG] Cleaned Microsoft Todo task title', {
+					taskId: task.id,
+					originalTitle: task.title,
+					cleanedTitle: cleanedTitle
+				});
+				// Update the task object with cleaned title
+				task.title = cleanedTitle;
+			} catch (error) {
+				this.logger.error('Failed to clean Microsoft Todo task title', {
+					taskId: task.id,
+					title: task.title,
+					error
+				});
+			}
+		}
+	}
+
 	private normalizeTitle(title: string): string {
 		return title.trim().toLowerCase().replace(/\s+/g, ' ');
+	}
+
+	private parseCompletionDate(task: TodoTask): string {
+		// No completedDateTime provided, use current date
+		if (!task.completedDateTime || task.completedDateTime.trim() === '') {
+			return new Date().toISOString().slice(0, 10);
+		}
+
+		this.logger.debug('Processing completedDateTime', {
+			taskId: task.id,
+			title: task.title,
+			completedDateTime: task.completedDateTime,
+			type: typeof task.completedDateTime
+		});
+
+		try {
+			const parsedDate = new Date(task.completedDateTime);
+			
+			// Check if the date is valid
+			if (isNaN(parsedDate.getTime())) {
+				this.logger.warn('Invalid completedDateTime format, using current date', {
+					taskId: task.id,
+					completedDateTime: task.completedDateTime
+				});
+				return new Date().toISOString().slice(0, 10);
+			}
+			
+			return parsedDate.toISOString().slice(0, 10);
+		} catch (dateError) {
+			// Date parsing failed, use current date
+			this.logger.warn('Failed to parse completedDateTime, using current date', {
+				taskId: task.id,
+				completedDateTime: task.completedDateTime,
+				error: dateError
+			});
+			return new Date().toISOString().slice(0, 10);
+		}
 	}
 
 	private cleanTaskTitle(title: string): string {
