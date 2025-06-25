@@ -228,7 +228,10 @@ export class TodoSynchronizer {
 		} catch (error) {
 			const errorMsg = `Microsoft to Obsidian sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 			errors.push(errorMsg);
-			this.logger.error('Microsoft to Obsidian sync failed', { error });
+			this.logger.error('Microsoft to Obsidian sync failed', { 
+				error: error instanceof Error ? error.message : 'Unknown error',
+				stack: error instanceof Error ? error.stack : undefined
+			});
 			return { added, errors };
 		}
 	}

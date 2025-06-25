@@ -1,0 +1,100 @@
+2025-06-25T07:11:06.002Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-25.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.002Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-24.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.002Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-19.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.002Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-18.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-14.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-13.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-12.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-11.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-10.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.003Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-09.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-08.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-07.md","taskCount":11,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-06.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-03.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-09-02.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-31.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.004Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-28.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-27.md","taskCount":8,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-26.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-25.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-24.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-23.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-22.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.005Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-21.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-20.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-19.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-08-18.md
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-17.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-16.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-15.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.006Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-14.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-13.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-12.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-10.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-09.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-08.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-07.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.007Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-06.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-05.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-04.md","taskCount":3,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-03.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-02.md","taskCount":9,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-08-01.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-31.md","taskCount":10,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.008Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-30.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-29.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-27.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-26.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-25.md","taskCount":15,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-24.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-22.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.009Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-07-20.md
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-19.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-18.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-17.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-16.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-12.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-11.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.010Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-10.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-09.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-08.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-06.md","taskCount":12,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-05.md","taskCount":7,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-04.md","taskCount":4,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-03.md","taskCount":3,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.011Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-02.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.012Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-07-01.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.012Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-28.md
+2025-06-25T07:11:06.012Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-27.md","taskCount":3,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.012Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-26.md
+2025-06-25T07:11:06.012Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-25.md
+2025-06-25T07:11:06.013Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-24.md
+2025-06-25T07:11:06.013Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-22.md
+2025-06-25T07:11:06.013Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-20.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.013Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-19.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.013Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-18.md
+2025-06-25T07:11:06.013Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-17.md
+2025-06-25T07:11:06.014Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-16.md
+2025-06-25T07:11:06.014Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-14.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.014Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-13.md","taskCount":1,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.014Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-12.md","taskCount":0,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.014Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-11.md","taskCount":3,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.014Z [DEBUG] Parsed daily note tasks | Context: {"filePath":"dailyNotes/2024-06-10.md","taskCount":2,"section":" in section \"# ToDo\""}
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-09.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-07.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-05.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-04.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-06-03.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-05-30.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-05-29.md
+2025-06-25T07:11:06.015Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2024-05-07.md
+2025-06-25T07:11:06.016Z [DEBUG] Task section "# ToDo" not found in dailyNotes/2022-12-18.md
+2025-06-25T07:11:06.016Z [INFO] Retrieved all daily note tasks | Context: {"fileCount":273,"taskCount":180}
+2025-06-25T07:11:06.184Z [DEBUG] Retrieved 7 tasks from list | Context: {"listId":"AQMkADAwATM3ZmYAZS1kMzI1LTdiNTAtMDACLTAwCgAuAAADtW-RAooaXkCTgolob3uk9gEAL32ma4WIlEeop4jFExekSQAHrQHmogAAAA=="}
+2025-06-25T07:11:06.185Z [INFO] Completion sync completed | Context: {"completed":0,"errors":0}
+2025-06-25T07:11:06.185Z [INFO] Full synchronization completed | Context: {"result":{"msftToObsidian":{"added":2,"errors":{}},"obsidianToMsft":{"added":4,"errors":{}},"completions":{"completed":0,"errors":{}},"timestamp":"2025-06-25T07:11:04.278Z"}}
+2025-06-25T07:11:06.186Z [DEBUG] Sidebar sync status updated | Context: {"status":"success"}
+2025-06-25T07:11:06.187Z [DEBUG] Settings saved successfully
+2025-06-25T07:11:06.188Z [DEBUG] Settings saved successfully
+2025-06-25T07:11:06.188Z [INFO] Manual sync completed | Context: {"result":{"msftToObsidian":{"added":2,"errors":{}},"obsidianToMsft":{"added":4,"errors":{}},"completions":{"completed":0,"errors":{}},"timestamp":"2025-06-25T07:11:04.278Z"}}
