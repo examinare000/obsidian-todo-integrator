@@ -156,10 +156,7 @@ describe('TodoSynchronizer', () => {
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockDailyNoteManager.getNotePath.mockReturnValue('Daily Notes/2024-01-01.md');
 			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
-			
-			// Mock the vault file check for ensureNoteExists
-			(mockDailyNoteManager as any).app.vault.getAbstractFileByPath = jest.fn()
-				.mockReturnValue({ path: 'Daily Notes/2024-01-01.md' });
+			mockDailyNoteManager.createDailyNote = jest.fn().mockResolvedValue(undefined);
 
 			const result = await synchronizer.syncMsftToObsidian();
 
@@ -193,10 +190,7 @@ describe('TodoSynchronizer', () => {
 			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue(dailyTasks);
 			mockDailyNoteManager.getNotePath.mockImplementation((date: string) => `Daily Notes/${date}.md`);
 			mockDailyNoteManager.addTaskToTodoSection.mockResolvedValue(undefined);
-			
-			// Mock the vault file check for ensureNoteExists
-			(mockDailyNoteManager as any).app.vault.getAbstractFileByPath = jest.fn()
-				.mockReturnValue({ path: 'Daily Notes/2024-01-15.md' });
+			mockDailyNoteManager.createDailyNote = jest.fn().mockResolvedValue(undefined);
 
 			const result = await synchronizer.syncMsftToObsidian();
 
