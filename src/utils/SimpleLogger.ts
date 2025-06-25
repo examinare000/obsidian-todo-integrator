@@ -111,7 +111,11 @@ export class SimpleLogger implements Logger {
 	}
 
 	getLogHistory(): Array<{ level: string; message: string; timestamp: string; context?: any }> {
-		return [...this.logHistory];
+		// Return deep copy to prevent external modification
+		return this.logHistory.map(entry => ({
+			...entry,
+			context: entry.context ? { ...entry.context } : undefined
+		}));
 	}
 
 	clearHistory(): void {

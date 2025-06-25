@@ -397,9 +397,14 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 
 	private exportLogs(): void {
 		try {
-			// Export logs functionality - SimpleLogger doesn't have exportLogs method
-			const logs = 'Log export feature not implemented in SimpleLogger';
-			const blob = new Blob([logs], { type: 'text/plain' });
+			// Get logs from the logger
+			const logger = this.plugin.getLogger();
+			const logs = logger.exportLogs();
+			
+			// If no logs available, provide a message
+			const exportContent = logs || 'No logs available. Logs are collected during plugin operation.';
+			
+			const blob = new Blob([exportContent], { type: 'text/plain' });
 			const url = URL.createObjectURL(blob);
 			
 			const a = document.createElement('a');
