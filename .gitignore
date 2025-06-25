@@ -22,6 +22,4 @@ data.json
 .DS_Store
 
 # Development documentation (local only)
-design.md
-CLAUDE.md
-development_log.md
+docs
