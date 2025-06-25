@@ -119,6 +119,7 @@ export interface Logger {
 	warn(message: string, context?: any): void;
 	error(message: string, context?: any): void;
 	setLogLevel(level: 'debug' | 'info' | 'warn' | 'error'): void;
+	exportLogs(): string;
 }
 
 export interface ErrorContext {
