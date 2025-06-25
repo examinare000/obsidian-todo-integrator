@@ -222,7 +222,9 @@ export class TodoSynchronizer {
 			// Find new Obsidian tasks (those without metadata)
 			const newObsidianTasks = allDailyTasks.filter(task => {
 				if (task.completed || !task.startDate) return false;
-				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, task.title);
+				// Use cleaned title for metadata lookup
+				const cleanedTitle = this.cleanTaskTitle(task.title);
+				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, cleanedTitle);
 				return !existingMsftId;
 			});
 			
@@ -265,8 +267,10 @@ export class TodoSynchronizer {
 					);
 					
 					// Store metadata for this task
+					// Use cleaned title for consistency with how we look it up
 					if (task.startDate) {
-						await this.metadataStore.setMetadata(task.startDate, task.title, createdTask.id);
+						const cleanedTitle = this.cleanTaskTitle(task.title);
+						await this.metadataStore.setMetadata(task.startDate, cleanedTitle, createdTask.id);
 					}
 					
 					added++;
@@ -317,14 +321,31 @@ export class TodoSynchronizer {
 			for (const msftTask of msftTasks) {
 				// Find matching Obsidian task using metadata
 				const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
-				if (!metadata) continue;
+				if (!metadata) {
+					this.logger.debug('No metadata found for Microsoft task', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						status: msftTask.status
+					});
+					continue;
+				}
 				
 				// Find the actual task in daily notes
+				// Note: metadata.title is already cleaned, so we need to clean the daily task title too
 				const dailyTask = allDailyTasks.find(task => 
 					task.startDate === metadata.date && 
-					this.normalizeTitle(task.title) === this.normalizeTitle(metadata.title)
+					this.cleanTaskTitle(task.title) === metadata.title
 				);
-				if (!dailyTask) continue;
+				if (!dailyTask) {
+					this.logger.debug('No matching daily task found for metadata', {
+						metadataDate: metadata.date,
+						metadataTitle: metadata.title,
+						availableTasks: allDailyTasks
+							.filter(t => t.startDate === metadata.date)
+							.map(t => ({ title: t.title, cleanedTitle: this.cleanTaskTitle(t.title) }))
+					});
+					continue;
+				}
 
 				const msftCompleted = msftTask.status === 'completed';
 				
@@ -356,8 +377,17 @@ export class TodoSynchronizer {
 				if (!dailyTask.completed || !dailyTask.startDate) continue;
 				
 				// Look up Microsoft task ID from metadata
-				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, dailyTask.title);
-				if (!msftTaskId) continue;
+				// Note: We need to use the cleaned title for metadata lookup since that's how it was stored
+				const cleanedTitle = this.cleanTaskTitle(dailyTask.title);
+				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, cleanedTitle);
+				if (!msftTaskId) {
+					this.logger.debug('No metadata found for completed Obsidian task', {
+						originalTitle: dailyTask.title,
+						cleanedTitle,
+						startDate: dailyTask.startDate
+					});
+					continue;
+				}
 				
 				const matchingMsftTask = msftTasksById.get(msftTaskId);
 

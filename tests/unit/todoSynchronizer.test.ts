@@ -3,6 +3,7 @@
 import { TodoSynchronizer } from '../../src/sync/TodoSynchronizer';
 import { TodoApiClient } from '../../src/api/TodoApiClient';
 import { DailyNoteManager } from '../../src/sync/DailyNoteManager';
+import { TaskMetadataStore } from '../../src/sync/TaskMetadataStore';
 import { TodoTask, DailyNoteTask, SyncResult } from '../../src/types';
 
 // Mock dependencies
@@ -21,6 +22,7 @@ describe('TodoSynchronizer', () => {
 			debug: jest.fn(),
 			info: jest.fn(),
 			error: jest.fn(),
+			warn: jest.fn(),
 		};
 
 		mockPlugin = {
@@ -423,6 +425,163 @@ describe('TodoSynchronizer', () => {
 				msftTask: msftTasks[1],
 				confidence: 1.0,
 			});
+		});
+	});
+
+	describe('Completion Sync - Title Matching Fix', () => {
+		beforeEach(() => {
+			// Setup task metadata store
+			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
+			synchronizer = new TodoSynchronizer(
+				mockApiClient,
+				mockDailyNoteManager,
+				metadataStore,
+				mockLogger,
+				'## TODO'
+			);
+		});
+
+		it('should use cleaned title when looking up metadata for Obsidian tasks', async () => {
+			// Setup: Completed Obsidian task with [todo::ID] pattern
+			const obsidianTask = {
+				title: 'Test Task [todo::abc123]',
+				completed: true,
+				startDate: '2024-01-01',
+				filePath: 'daily/2024-01-01.md',
+				lineNumber: 10,
+			};
+
+			// Microsoft task without the [todo::ID] pattern
+			const msftTask: TodoTask = {
+				id: 'msft-task-123',
+				title: 'Test Task',
+				status: 'notStarted',
+				createdDateTime: '2024-01-01T00:00:00Z',
+			};
+
+			// Mock methods
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
+			mockApiClient.getTasks.mockResolvedValue([msftTask]);
+			mockApiClient.getDefaultListId.mockReturnValue('list-123');
+
+			// Pre-populate metadata with cleaned title
+			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
+			await metadataStore.setMetadata('2024-01-01', 'Test Task', 'msft-task-123');
+			
+			// Create synchronizer with the metadata store
+			synchronizer = new TodoSynchronizer(
+				mockApiClient,
+				mockDailyNoteManager,
+				metadataStore,
+				mockLogger,
+				'## TODO'
+			);
+
+			// Execute completion sync
+			const result = await synchronizer.syncCompletions();
+
+			// Verify task was marked as completed in Microsoft
+			expect(mockApiClient.completeTask).toHaveBeenCalledWith('list-123', 'msft-task-123');
+			expect(result.completed).toBe(1);
+		});
+
+		it('should match daily tasks using cleaned title from metadata', async () => {
+			// Setup: Microsoft completed task
+			const msftTask: TodoTask = {
+				id: 'msft-task-123',
+				title: 'Test Task',
+				status: 'completed',
+				completedDateTime: '2024-01-01T10:00:00Z',
+				createdDateTime: '2024-01-01T00:00:00Z',
+			};
+
+			// Obsidian task with [todo::ID] pattern
+			const obsidianTask = {
+				title: 'Test Task [todo::abc123]',
+				completed: false,
+				startDate: '2024-01-01',
+				filePath: 'daily/2024-01-01.md',
+				lineNumber: 10,
+			};
+
+			// Mock methods
+			mockApiClient.getTasks.mockResolvedValue([msftTask]);
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
+			mockDailyNoteManager.updateTaskCompletion.mockResolvedValue();
+
+			// Pre-populate metadata with cleaned title
+			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
+			await metadataStore.setMetadata('2024-01-01', 'Test Task', 'msft-task-123');
+			
+			// Create synchronizer with the metadata store
+			synchronizer = new TodoSynchronizer(
+				mockApiClient,
+				mockDailyNoteManager,
+				metadataStore,
+				mockLogger,
+				'## TODO'
+			);
+
+			// Execute completion sync
+			const result = await synchronizer.syncCompletions();
+
+			// Verify task was marked as completed in Obsidian
+			expect(mockDailyNoteManager.updateTaskCompletion).toHaveBeenCalledWith(
+				'daily/2024-01-01.md',
+				10,
+				true,
+				'2024-01-01'
+			);
+			expect(result.completed).toBe(1);
+		});
+
+		it('should store metadata with cleaned title when creating from Obsidian', async () => {
+			// Setup: New Obsidian task with [todo::ID] pattern
+			const obsidianTask = {
+				title: 'New Task [todo::xyz789]',
+				completed: false,
+				startDate: '2024-01-02',
+				filePath: 'daily/2024-01-02.md',
+				lineNumber: 5,
+			};
+
+			// Mock methods
+			mockDailyNoteManager.getAllDailyNoteTasks.mockResolvedValue([obsidianTask]);
+			mockApiClient.getTasks.mockResolvedValue([]); // No existing tasks
+			mockApiClient.getDefaultListId.mockReturnValue('list-123');
+			mockApiClient.createTaskWithStartDate.mockResolvedValue({
+				id: 'new-msft-task-456',
+				title: 'New Task [todo::xyz789]',
+				status: 'notStarted',
+				createdDateTime: '2024-01-02T00:00:00Z',
+			});
+
+			// Create a new metadata store to verify storage
+			const metadataStore = new TaskMetadataStore(mockPlugin, mockLogger);
+			
+			// Create synchronizer with the metadata store
+			synchronizer = new TodoSynchronizer(
+				mockApiClient,
+				mockDailyNoteManager,
+				metadataStore,
+				mockLogger,
+				'## TODO'
+			);
+
+			// Execute sync
+			const result = await synchronizer.syncObsidianToMsft();
+
+			// Verify task was created
+			expect(mockApiClient.createTaskWithStartDate).toHaveBeenCalledWith(
+				'list-123',
+				'New Task [todo::xyz789]',
+				'2024-01-02'
+			);
+			expect(result.added).toBe(1);
+
+			// Verify metadata was stored with cleaned title
+			const storedId = metadataStore.getMsftTaskId('2024-01-02', 'New Task');
+			expect(storedId).toBe('new-msft-task-456');
 		});
 	});
 });
