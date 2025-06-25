@@ -244,29 +244,13 @@ export class DailyNoteManager {
 			let sectionEndIndex = lines.length;
 
 			if (taskSectionHeading) {
-				for (let i = 0; i < lines.length; i++) {
-					const line = lines[i].trim();
-					if (line === taskSectionHeading.trim()) {
-						sectionStartIndex = i;
-						// Find the end of this section (next heading of same or higher level)
-						const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
-						for (let j = i + 1; j < lines.length; j++) {
-							const nextLine = lines[j].trim();
-							const nextHeadingMatch = nextLine.match(/^(#+)\s/);
-							if (nextHeadingMatch && nextHeadingMatch[1].length <= currentLevel) {
-								sectionEndIndex = j;
-								break;
-							}
-						}
-						break;
-					}
-				}
-
-				// If section not found, return empty array
-				if (sectionStartIndex === -1) {
+				const sectionBoundaries = this.findSectionBoundaries(lines, taskSectionHeading);
+				if (!sectionBoundaries) {
 					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
 					return [];
 				}
+				sectionStartIndex = sectionBoundaries.start;
+				sectionEndIndex = sectionBoundaries.end;
 			}
 
 			// Parse tasks only within the specified section (or entire file if no section specified)
@@ -376,12 +360,12 @@ export class DailyNoteManager {
 			
 			for (const file of allFiles) {
 				// Check if file is in the daily notes folder
-				if (file.path.startsWith(this.dailyNotesPath + '/')) {
-					// Check if filename looks like a date
-					if (this.isDateFilename(file.name)) {
-						markdownFiles.push(file);
-					}
-				}
+				if (!file.path.startsWith(this.dailyNotesPath + '/')) continue;
+				
+				// Check if filename looks like a date
+				if (!this.isDateFilename(file.name)) continue;
+				
+				markdownFiles.push(file);
 			}
 
 			this.logger.debug('Found daily note files', { 
@@ -539,43 +523,45 @@ export class DailyNoteManager {
 	}
 
 	private async generateDailyNoteContent(): Promise<string> {
-		// If template is specified, try to use it
-		if (this.templatePath) {
-			try {
-				const templateContent = await this.loadTemplate();
-				if (templateContent) {
-					return this.processTemplate(templateContent);
-				}
-			} catch (error) {
-				this.logger.error('Failed to load template, using default content', { 
-					templatePath: this.templatePath, 
-					error 
-				});
-			}
+		// If no template specified, use default content
+		if (!this.templatePath) {
+			return this.generateDefaultDailyNoteContent();
 		}
 
-		// Fallback to default content
-		return this.generateDefaultDailyNoteContent();
+		try {
+			const templateContent = await this.loadTemplate();
+			if (!templateContent) {
+				return this.generateDefaultDailyNoteContent();
+			}
+			return this.processTemplate(templateContent);
+		} catch (error) {
+			this.logger.error('Failed to load template, using default content', { 
+				templatePath: this.templatePath, 
+				error 
+			});
+			return this.generateDefaultDailyNoteContent();
+		}
 	}
 
 	private async generateDailyNoteContentForDate(date: Date): Promise<string> {
-		// If template is specified, try to use it
-		if (this.templatePath) {
-			try {
-				const templateContent = await this.loadTemplate();
-				if (templateContent) {
-					return this.processTemplateForDate(templateContent, date);
-				}
-			} catch (error) {
-				this.logger.error('Failed to load template, using default content', { 
-					templatePath: this.templatePath, 
-					error 
-				});
-			}
+		// If no template specified, use default content
+		if (!this.templatePath) {
+			return this.generateDefaultDailyNoteContentForDate(date);
 		}
 
-		// Fallback to default content
-		return this.generateDefaultDailyNoteContentForDate(date);
+		try {
+			const templateContent = await this.loadTemplate();
+			if (!templateContent) {
+				return this.generateDefaultDailyNoteContentForDate(date);
+			}
+			return this.processTemplateForDate(templateContent, date);
+		} catch (error) {
+			this.logger.error('Failed to load template, using default content', { 
+				templatePath: this.templatePath, 
+				error 
+			});
+			return this.generateDefaultDailyNoteContentForDate(date);
+		}
 	}
 
 	private async loadTemplate(): Promise<string | null> {
@@ -781,5 +767,33 @@ export class DailyNoteManager {
 		}
 		
 		return path;
+	}
+
+	private findSectionBoundaries(lines: string[], taskSectionHeading: string): { start: number; end: number } | null {
+		const targetHeading = taskSectionHeading.trim();
+		
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i].trim();
+			if (line !== targetHeading) continue;
+			
+			// Found the section start
+			const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
+			let sectionEndIndex = lines.length;
+			
+			// Find the end of this section (next heading of same or higher level)
+			for (let j = i + 1; j < lines.length; j++) {
+				const nextLine = lines[j].trim();
+				const nextHeadingMatch = nextLine.match(/^(#+)\s/);
+				if (!nextHeadingMatch) continue;
+				if (nextHeadingMatch[1].length <= currentLevel) {
+					sectionEndIndex = j;
+					break;
+				}
+			}
+			
+			return { start: i, end: sectionEndIndex };
+		}
+		
+		return null;
 	}
 }
