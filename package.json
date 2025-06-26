@@ -1,6 +1,6 @@
 {
 	"name": "todo-integrator",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "ToDo Integrator Plugin for Obsidian - Sync tasks between Microsoft To Do and Daily Notes",
 	"main": "main.js",
 	"scripts": {
