@@ -120,18 +120,19 @@ export function createMockSettings(): TodoIntegratorSettings {
 	return {
 		clientId: 'test-client-id',
 		tenantId: 'common',
-		redirectPort: 42813,
-		taskFolder: 'Tasks',
+		todoListName: 'Tasks',
 		dailyNotesPath: 'Daily Notes',
-		taskSectionHeading: '## TODO',
-		autoSync: false,
-		syncInterval: 5,
+		autoSyncEnabled: false,
+		syncIntervalMinutes: 5,
 		logLevel: 'info',
-		lastSync: null,
-		defaultListId: 'default-list-id',
-		logToFile: false,
-		autoCreateDailyNote: true,
+		lastSyncTime: undefined,
 		advancedConfigEnabled: false,
+		dailyNoteDateFormat: 'YYYY-MM-DD',
+		dailyNoteTemplate: undefined,
+		taskSectionHeading: '## TODO',
+		_userSetDailyNotesPath: false,
+		_userSetDailyNoteDateFormat: false,
+		_userSetDailyNoteTemplate: false,
 	};
 }
 
