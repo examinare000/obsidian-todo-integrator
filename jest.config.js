@@ -13,7 +13,7 @@ module.exports = {
 	coverageDirectory: 'coverage',
 	coverageReporters: ['text', 'lcov', 'html'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-	moduleNameMapping: {
+	moduleNameMapper: {
 		'^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts',
 	},
 	testTimeout: 10000,

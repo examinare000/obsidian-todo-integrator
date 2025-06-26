@@ -195,36 +195,14 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.dailyNotesPath)
 				.onChange(async (value) => {
 					const pathValue = value || 'Daily Notes';
-					const validation = this.pathValidator.validateFolderPath(pathValue);
-					
-					if (validation.isValid) {
-						await this.plugin.updateSetting('dailyNotesPath', pathValue);
-						this.clearValidationMessage(pathSetting.settingEl);
-						if (validation.warningMessage) {
-							this.showValidationMessage(pathSetting.settingEl, validation.warningMessage, 'warning');
-						}
-						this.display(); // Refresh to update inheritance indicators
-					} else {
-						this.showValidationMessage(pathSetting.settingEl, validation.error!, 'error');
-					}
+					await this.handlePathValidation(pathSetting.settingEl, pathValue, 'dailyNotesPath');
 				}))
 			.addButton(button => button
 				.setButtonText('作成')
 				.setTooltip('フォルダが存在しない場合は作成します')
 				.onClick(async () => {
 					const pathValue = this.plugin.settings.dailyNotesPath;
-					const result = await this.pathValidator.createFolderIfNeeded(pathValue);
-					
-					if (result.isValid) {
-						this.clearValidationMessage(pathSetting.settingEl);
-						if (result.warningMessage) {
-							this.showValidationMessage(pathSetting.settingEl, result.warningMessage, 'success');
-						}
-						// Re-validate after creation
-						setTimeout(() => this.display(), 100);
-					} else {
-						this.showValidationMessage(pathSetting.settingEl, result.error!, 'error');
-					}
+					await this.handleFolderCreation(pathSetting.settingEl, pathValue);
 				}));
 		
 		// Initial validation for Daily Notes Path
@@ -260,18 +238,7 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 					.setPlaceholder('Templates/Daily Note Template.md')
 					.setValue(this.plugin.settings.dailyNoteTemplate || '')
 					.onChange(async (value) => {
-						const validation = this.pathValidator.validateFilePath(value || '');
-						
-						if (validation.isValid) {
-							await this.plugin.updateSetting('dailyNoteTemplate', value || undefined);
-							this.clearValidationMessage(templateSetting.settingEl);
-							if (validation.warningMessage) {
-								this.showValidationMessage(templateSetting.settingEl, validation.warningMessage, 'warning');
-							}
-							this.display(); // Refresh to update inheritance indicators
-						} else {
-							this.showValidationMessage(templateSetting.settingEl, validation.error!, 'error');
-						}
+						await this.handleTemplateValidation(templateSetting.settingEl, value || '', 'dailyNoteTemplate');
 					});
 			})
 			.addButton(button => button
@@ -281,28 +248,13 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 					this.showFileSelector(templateSetting, async (selectedPath) => {
 						templateTextComponent.setValue(selectedPath);
 						// Trigger validation and save
-						const validation = this.pathValidator.validateFilePath(selectedPath);
-						if (validation.isValid) {
-							await this.plugin.updateSetting('dailyNoteTemplate', selectedPath || undefined);
-							this.clearValidationMessage(templateSetting.settingEl);
-							if (validation.warningMessage) {
-								this.showValidationMessage(templateSetting.settingEl, validation.warningMessage, 'warning');
-							}
-							this.display();
-						} else {
-							this.showValidationMessage(templateSetting.settingEl, validation.error!, 'error');
-						}
+						await this.handleTemplateValidation(templateSetting.settingEl, selectedPath, 'dailyNoteTemplate');
 					});
 				}));
 		
 		// Initial validation for Template File
 		if (this.plugin.settings.dailyNoteTemplate) {
-			const initialTemplateValidation = this.pathValidator.validateFilePath(this.plugin.settings.dailyNoteTemplate);
-			if (!initialTemplateValidation.isValid) {
-				this.showValidationMessage(templateSetting.settingEl, initialTemplateValidation.error!, 'error');
-			} else if (initialTemplateValidation.warningMessage) {
-				this.showValidationMessage(templateSetting.settingEl, initialTemplateValidation.warningMessage, 'warning');
-			}
+			this.showInitialValidation(templateSetting.settingEl, this.plugin.settings.dailyNoteTemplate, 'file');
 		}
 
 		// Task Section Heading setting
@@ -417,6 +369,87 @@ export class TodoIntegratorSettingsTab extends PluginSettingTab {
 
 		} catch (error) {
 			console.error('Failed to export logs:', error);
+		}
+	}
+
+	/**
+	 * Handle path validation with UI updates
+	 */
+	private async handlePathValidation(settingEl: HTMLElement, pathValue: string, settingKey: 'dailyNotesPath'): Promise<void> {
+		const validation = this.pathValidator.validateFolderPath(pathValue);
+		
+		if (!validation.isValid) {
+			this.showValidationMessage(settingEl, validation.error!, 'error');
+			return;
+		}
+		
+		await this.plugin.updateSetting(settingKey, pathValue);
+		this.clearValidationMessage(settingEl);
+		
+		if (validation.warningMessage) {
+			this.showValidationMessage(settingEl, validation.warningMessage, 'warning');
+		}
+		
+		this.display(); // Refresh to update inheritance indicators
+	}
+
+	/**
+	 * Handle template validation with UI updates
+	 */
+	private async handleTemplateValidation(settingEl: HTMLElement, value: string, settingKey: 'dailyNoteTemplate'): Promise<void> {
+		const validation = this.pathValidator.validateFilePath(value);
+		
+		if (!validation.isValid) {
+			this.showValidationMessage(settingEl, validation.error!, 'error');
+			return;
+		}
+		
+		await this.plugin.updateSetting(settingKey, value || undefined);
+		this.clearValidationMessage(settingEl);
+		
+		if (validation.warningMessage) {
+			this.showValidationMessage(settingEl, validation.warningMessage, 'warning');
+		}
+		
+		this.display(); // Refresh to update inheritance indicators
+	}
+
+	/**
+	 * Handle folder creation with validation
+	 */
+	private async handleFolderCreation(settingEl: HTMLElement, pathValue: string): Promise<void> {
+		const result = await this.pathValidator.createFolderIfNeeded(pathValue);
+		
+		if (!result.isValid) {
+			this.showValidationMessage(settingEl, result.error!, 'error');
+			return;
+		}
+		
+		this.clearValidationMessage(settingEl);
+		
+		if (result.warningMessage) {
+			this.showValidationMessage(settingEl, result.warningMessage, 'success');
+		}
+		
+		// Re-validate after creation
+		setTimeout(() => this.display(), 100);
+	}
+
+	/**
+	 * Show initial validation for paths
+	 */
+	private showInitialValidation(settingEl: HTMLElement, path: string, type: 'file' | 'folder'): void {
+		const validation = type === 'file' 
+			? this.pathValidator.validateFilePath(path)
+			: this.pathValidator.validateFolderPath(path);
+			
+		if (!validation.isValid) {
+			this.showValidationMessage(settingEl, validation.error!, 'error');
+			return;
+		}
+		
+		if (validation.warningMessage) {
+			this.showValidationMessage(settingEl, validation.warningMessage, 'warning');
 		}
 	}
 

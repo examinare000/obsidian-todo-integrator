@@ -73,6 +73,37 @@ export class DailyNoteManager {
 		}
 	}
 
+	async createDailyNote(date: string): Promise<void> {
+		const notePath = this.getNotePath(date);
+		
+		try {
+			// Check if file already exists
+			const existingFile = this.app.vault.getAbstractFileByPath(notePath);
+			if (existingFile && existingFile instanceof TFile) {
+				this.logger.debug('Daily note already exists', { path: notePath, date });
+				return;
+			}
+
+			// Create new daily note with specific date
+			this.logger.info('Creating new daily note', { path: notePath, date });
+			const targetDate = new Date(date);
+			const content = await this.generateDailyNoteContentForDate(targetDate);
+			
+			await this.app.vault.create(notePath, content);
+			this.logger.info('Daily note created successfully', { path: notePath, date });
+			
+		} catch (error) {
+			const context: ErrorContext = {
+				component: 'DailyNoteManager',
+				method: 'createDailyNote',
+				timestamp: new Date().toISOString(),
+				details: { notePath, date, error },
+			};
+			this.logger.error('Failed to create daily note', context);
+			throw new Error(`${ERROR_CODES.FILE_NOT_FOUND}: Failed to create daily note for ${date}`);
+		}
+	}
+
 	async findOrCreateTodoSection(filePath: string, sectionHeader?: string): Promise<number> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
@@ -213,28 +244,13 @@ export class DailyNoteManager {
 			let sectionEndIndex = lines.length;
 
 			if (taskSectionHeading) {
-				for (let i = 0; i < lines.length; i++) {
-					const line = lines[i].trim();
-					if (line === taskSectionHeading.trim()) {
-						sectionStartIndex = i;
-						// Find the end of this section (next heading of same or higher level)
-						const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
-						for (let j = i + 1; j < lines.length; j++) {
-							const nextLine = lines[j].trim();
-							const nextHeadingMatch = nextLine.match(/^(#+)\s/);
-							if (nextHeadingMatch && nextHeadingMatch[1].length <= currentLevel) {
-								sectionEndIndex = j;
-								break;
-							}
-						}
-						break;
-					}
-				}
-
-				// If section not found, return empty array
-				if (sectionStartIndex === -1) {
+				const sectionBoundaries = this.findSectionBoundaries(lines, taskSectionHeading);
+				if (!sectionBoundaries) {
+					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
 					return [];
 				}
+				sectionStartIndex = sectionBoundaries.start;
+				sectionEndIndex = sectionBoundaries.end;
 			}
 
 			// Parse tasks only within the specified section (or entire file if no section specified)
@@ -347,12 +363,12 @@ export class DailyNoteManager {
 			
 			for (const file of allFiles) {
 				// Check if file is in the daily notes folder
-				if (file.path.startsWith(this.dailyNotesPath + '/')) {
-					// Check if filename looks like a date
-					if (this.isDateFilename(file.name)) {
-						markdownFiles.push(file);
-					}
-				}
+				if (!file.path.startsWith(this.dailyNotesPath + '/')) continue;
+				
+				// Check if filename looks like a date
+				if (!this.isDateFilename(file.name)) continue;
+				
+				markdownFiles.push(file);
 			}
 
 			this.logger.debug('Found daily note files', { 
@@ -510,23 +526,45 @@ export class DailyNoteManager {
 	}
 
 	private async generateDailyNoteContent(): Promise<string> {
-		// If template is specified, try to use it
-		if (this.templatePath) {
-			try {
-				const templateContent = await this.loadTemplate();
-				if (templateContent) {
-					return this.processTemplate(templateContent);
-				}
-			} catch (error) {
-				this.logger.error('Failed to load template, using default content', { 
-					templatePath: this.templatePath, 
-					error 
-				});
-			}
+		// If no template specified, use default content
+		if (!this.templatePath) {
+			return this.generateDefaultDailyNoteContent();
 		}
 
-		// Fallback to default content
-		return this.generateDefaultDailyNoteContent();
+		try {
+			const templateContent = await this.loadTemplate();
+			if (!templateContent) {
+				return this.generateDefaultDailyNoteContent();
+			}
+			return this.processTemplate(templateContent);
+		} catch (error) {
+			this.logger.error('Failed to load template, using default content', { 
+				templatePath: this.templatePath, 
+				error 
+			});
+			return this.generateDefaultDailyNoteContent();
+		}
+	}
+
+	private async generateDailyNoteContentForDate(date: Date): Promise<string> {
+		// If no template specified, use default content
+		if (!this.templatePath) {
+			return this.generateDefaultDailyNoteContentForDate(date);
+		}
+
+		try {
+			const templateContent = await this.loadTemplate();
+			if (!templateContent) {
+				return this.generateDefaultDailyNoteContentForDate(date);
+			}
+			return this.processTemplateForDate(templateContent, date);
+		} catch (error) {
+			this.logger.error('Failed to load template, using default content', { 
+				templatePath: this.templatePath, 
+				error 
+			});
+			return this.generateDefaultDailyNoteContentForDate(date);
+		}
 	}
 
 	private async loadTemplate(): Promise<string | null> {
@@ -553,21 +591,25 @@ export class DailyNoteManager {
 
 	private processTemplate(templateContent: string): string {
 		const today = new Date();
-		
+		return this.processTemplateForDate(templateContent, today);
+	}
+
+	private processTemplateForDate(templateContent: string, date: Date): string {
 		// Replace common template variables
 		let processedContent = templateContent
-			.replace(/\{\{date\}\}/g, this.formatDate(today, this.dateFormat))
-			.replace(/\{\{date:YYYY-MM-DD\}\}/g, this.formatDate(today, 'YYYY-MM-DD'))
-			.replace(/\{\{date:DD-MM-YYYY\}\}/g, this.formatDate(today, 'DD-MM-YYYY'))
-			.replace(/\{\{date:MM-DD-YYYY\}\}/g, this.formatDate(today, 'MM-DD-YYYY'))
-			.replace(/\{\{date:YYYY\/MM\/DD\}\}/g, this.formatDate(today, 'YYYY/MM/DD'))
-			.replace(/\{\{title\}\}/g, `Daily Note - ${this.formatDate(today, 'MMMM Do, YYYY')}`)
-			.replace(/\{\{time\}\}/g, this.formatTime(today))
-			.replace(/\{\{timestamp\}\}/g, this.formatTimestamp(today));
+			.replace(/\{\{date\}\}/g, this.formatDate(date, this.dateFormat))
+			.replace(/\{\{date:YYYY-MM-DD\}\}/g, this.formatDate(date, 'YYYY-MM-DD'))
+			.replace(/\{\{date:DD-MM-YYYY\}\}/g, this.formatDate(date, 'DD-MM-YYYY'))
+			.replace(/\{\{date:MM-DD-YYYY\}\}/g, this.formatDate(date, 'MM-DD-YYYY'))
+			.replace(/\{\{date:YYYY\/MM\/DD\}\}/g, this.formatDate(date, 'YYYY/MM/DD'))
+			.replace(/\{\{title\}\}/g, `Daily Note - ${this.formatDate(date, 'MMMM Do, YYYY')}`)
+			.replace(/\{\{time\}\}/g, this.formatTime(date))
+			.replace(/\{\{timestamp\}\}/g, this.formatTimestamp(date));
 
 		this.logger.debug('Template processed successfully', { 
 			originalLength: templateContent.length,
-			processedLength: processedContent.length 
+			processedLength: processedContent.length,
+			date: this.formatDate(date, 'YYYY-MM-DD')
 		});
 
 		return processedContent;
@@ -575,7 +617,11 @@ export class DailyNoteManager {
 
 	private generateDefaultDailyNoteContent(): string {
 		const today = new Date();
-		const dateString = today.toLocaleDateString('en-US', {
+		return this.generateDefaultDailyNoteContentForDate(today);
+	}
+
+	private generateDefaultDailyNoteContentForDate(date: Date): string {
+		const dateString = date.toLocaleDateString('en-US', {
 			weekday: 'long',
 			year: 'numeric',
 			month: 'long',
@@ -724,5 +770,33 @@ export class DailyNoteManager {
 		}
 		
 		return path;
+	}
+
+	private findSectionBoundaries(lines: string[], taskSectionHeading: string): { start: number; end: number } | null {
+		const targetHeading = taskSectionHeading.trim();
+		
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i].trim();
+			if (line !== targetHeading) continue;
+			
+			// Found the section start
+			const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
+			let sectionEndIndex = lines.length;
+			
+			// Find the end of this section (next heading of same or higher level)
+			for (let j = i + 1; j < lines.length; j++) {
+				const nextLine = lines[j].trim();
+				const nextHeadingMatch = nextLine.match(/^(#+)\s/);
+				if (!nextHeadingMatch) continue;
+				if (nextHeadingMatch[1].length <= currentLevel) {
+					sectionEndIndex = j;
+					break;
+				}
+			}
+			
+			return { start: i, end: sectionEndIndex };
+		}
+		
+		return null;
 	}
 }

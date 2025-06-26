@@ -38,6 +38,7 @@ describe('Metadata-based Synchronization Integration', () => {
 			addTaskToTodoSection: jest.fn(),
 			updateTaskCompletion: jest.fn(),
 			getNotePath: jest.fn(),
+			createDailyNote: jest.fn().mockResolvedValue(undefined),
 			app: {
 				vault: {
 					getAbstractFileByPath: jest.fn().mockReturnValue({ path: 'test.md' }),

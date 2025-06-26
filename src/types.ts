@@ -98,6 +98,10 @@ export interface SyncResult {
 		errors: string[];
 	};
 	timestamp: string;
+	// 後方互換性のための集計フィールド
+	added?: number;  // 総追加数
+	completed?: number;  // 総完了数
+	errors?: string[];  // 全エラー
 }
 
 export interface TaskPair {

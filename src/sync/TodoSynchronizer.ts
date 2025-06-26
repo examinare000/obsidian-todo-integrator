@@ -61,6 +61,10 @@ export class TodoSynchronizer {
 				obsidianToMsft,
 				completions,
 				timestamp: startTime,
+				// 後方互換性のための集計フィールド
+				added: msftToObsidian.added + obsidianToMsft.added,
+				completed: completions.completed,
+				errors: [...msftToObsidian.errors, ...obsidianToMsft.errors, ...completions.errors],
 			};
 
 			// Clean up old metadata (older than 90 days)
@@ -106,30 +110,7 @@ export class TodoSynchronizer {
 			});
 			
 			// Clean up Microsoft Todo task titles if they contain [todo:: tags
-			const listId = this.apiClient.getDefaultListId();
-			if (listId) {
-				for (const task of msftTasks) {
-					if (task.title.includes('[todo::')) {
-						const cleanedTitle = this.cleanTaskTitle(task.title);
-						try {
-							await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
-							this.logger.info('[DEBUG] Cleaned Microsoft Todo task title', {
-								taskId: task.id,
-								originalTitle: task.title,
-								cleanedTitle: cleanedTitle
-							});
-							// Update the task object with cleaned title
-							task.title = cleanedTitle;
-						} catch (error) {
-							this.logger.error('Failed to clean Microsoft Todo task title', {
-								taskId: task.id,
-								title: task.title,
-								error
-							});
-						}
-					}
-				}
-			}
+			await this.cleanMicrosoftTodoTitles(msftTasks)
 
 			// Find new Microsoft tasks that don't exist in Obsidian (only incomplete tasks)
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
@@ -148,18 +129,39 @@ export class TodoSynchronizer {
 			// Add each new task to the appropriate daily note based on due date (fallback to creation date)
 			for (const task of newMsftTasks) {
 				try {
-					// Extract date from Microsoft Todo task - prefer due date, fallback to creation date
-					const taskDate = task.dueDateTime 
-						? new Date(task.dueDateTime.dateTime).toISOString().slice(0, 10)
-						: new Date(task.createdDateTime).toISOString().slice(0, 10);
+					// Microsoft Todoタスクから日付を抽出 - 期日を優先、なければ作成日を使用
+					let taskDate: string;
+					if (task.dueDateTime) {
+						// dueDateTimeから日付部分を抽出
+						// Microsoft TodoはUTCタイムスタンプを使用するが、終日タスクの場合は
+						// タイムゾーン変換をせずに日付部分を直接使用する必要がある
+						const dueDateTimeStr = task.dueDateTime.dateTime;
+						const timeZone = task.dueDateTime.timeZone;
+						
+						// Microsoft Todoでは、特定時刻のあるタスクは15:00:00 UTCとして表示されることが多い
+						// これはユーザーのローカルタイムゾーンでの終日タスクを表している
+						// タイムゾーン変換の問題を避けるため、常に日付部分を直接使用
+						taskDate = dueDateTimeStr.split('T')[0];
+						
+						this.logger.info('[DEBUG] Due date processing', {
+							taskId: task.id,
+							title: task.title,
+							dueDateTimeStr,
+							extractedDate: taskDate,
+							timeZone: timeZone,
+							fullDueDateTime: task.dueDateTime
+						});
+					} else {
+						taskDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
+					}
 					const targetNotePath = this.dailyNoteManager.getNotePath(taskDate);
 					
-					// Ensure the target note exists
+					// ターゲットノートが存在することを確認
 					await this.ensureNoteExists(targetNotePath, taskDate);
 					
 					const cleanedTitle = this.cleanTaskTitle(task.title);
 					
-					// Add as incomplete task
+					// 未完了タスクとして追加
 					this.logger.info('[DEBUG] Adding task to Obsidian', {
 						targetNotePath,
 						cleanedTitle,
@@ -174,7 +176,7 @@ export class TodoSynchronizer {
 						this.taskSectionHeading
 					);
 					
-					// Store metadata for this task
+					// このタスクのメタデータを保存
 					await this.metadataStore.setMetadata(taskDate, cleanedTitle, task.id);
 					
 					added++;
@@ -204,7 +206,10 @@ export class TodoSynchronizer {
 		} catch (error) {
 			const errorMsg = `Microsoft to Obsidian sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 			errors.push(errorMsg);
-			this.logger.error('Microsoft to Obsidian sync failed', { error });
+			this.logger.error('Microsoft to Obsidian sync failed', { 
+				error: error instanceof Error ? error.message : 'Unknown error',
+				stack: error instanceof Error ? error.stack : undefined
+			});
 			return { added, errors };
 		}
 	}
@@ -215,13 +220,22 @@ export class TodoSynchronizer {
 		let added = 0;
 
 		try {
-			// Get all daily note tasks from all files
+			// 全てのファイルからデイリーノートタスクを取得
 			const allDailyTasks = await this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading);
 
-			// Find new Obsidian tasks (those without metadata)
+			// 新規Obsidianタスクを検索（メタデータがないもの）
 			const newObsidianTasks = allDailyTasks.filter(task => {
 				if (task.completed || !task.startDate) return false;
-				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, task.title);
+				// メタデータ検索時にクリーンなタイトルを使用して既存タスクを確認
+				// これにより、ユーザーが[todo::ID]を追加/削除しても重複作成を防げる
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. IDを含む完全なタイトルで比較
+				//    → 却下理由: 既存タスクにIDを追加した時に重複が作成される
+				// 2. タスク内容のハッシュで重複排除
+				//    → 却下理由: 現在のデータモデルにタスク内容が含まれていない
+				const cleanedTitle = this.cleanTaskTitle(task.title);
+				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, cleanedTitle);
 				return !existingMsftId;
 			});
 			
@@ -235,21 +249,21 @@ export class TodoSynchronizer {
 				}))
 			});
 
-			// Get default list ID
+			// デフォルトリストIDを取得
 			const listId = this.apiClient.getDefaultListId();
 			if (!listId) {
-				throw new Error('No default Microsoft Todo list configured');
+				throw new Error('デフォルトのMicrosoft Todoリストが設定されていません');
 			}
 
-			// Get existing Microsoft tasks to check for duplicates
+			// 重複チェック用に既存のMicrosoftタスクを取得
 			const existingMsftTasks = await this.apiClient.getTasks();
 			const existingTitles = new Set(
 				existingMsftTasks.map(task => this.normalizeTitle(this.cleanTaskTitle(task.title)))
 			);
 
-			// Create each new task in Microsoft Todo with start date
+			// 各新規タスクを開始日付きでMicrosoft Todoに作成
 			for (const task of newObsidianTasks) {
-				// Skip if task already exists in Microsoft Todo (by normalized title)
+				// 正規化したタイトルでMicrosoft Todoに既に存在する場合はスキップ
 				if (existingTitles.has(this.normalizeTitle(task.title))) {
 					this.logger.info('[DEBUG] Skipping task - already exists in Microsoft Todo', {
 						taskTitle: task.title
@@ -263,9 +277,20 @@ export class TodoSynchronizer {
 						task.startDate
 					);
 					
-					// Store metadata for this task
+					// このタスクのメタデータを保存
+					// クリーンなタイトル（[todo::ID]なし）で保存して一貫した検索を保証
+					// これは完了状態同期が正しく動作するために重要
+					//
+					// 検討したが採用しなかった代替案:
+					// 1. 元のタイトルで保存し、検索時にクリーン化
+					//    → 却下理由: 後でIDが追加/削除された時にタスクが見つからなくなる
+					// 2. 各タスクに一意のハッシュを生成
+					//    → 却下理由: 複雑性が増し、手動でのタイトル編集に対応できない
+					// 3. タスク内容を追加の照合条件として使用
+					//    → 却下理由: 現在のデータモデルにタスク内容が含まれていない
 					if (task.startDate) {
-						await this.metadataStore.setMetadata(task.startDate, task.title, createdTask.id);
+						const cleanedTitle = this.cleanTaskTitle(task.title);
+						await this.metadataStore.setMetadata(task.startDate, cleanedTitle, createdTask.id);
 					}
 					
 					added++;
@@ -297,7 +322,7 @@ export class TodoSynchronizer {
 	}
 
 	async syncCompletions(): Promise<{ completed: number; errors: string[] }> {
-		this.logger.info('Syncing completion status');
+		this.logger.info('完了状態を同期中');
 		const errors: string[] = [];
 		let completed = 0;
 
@@ -307,111 +332,123 @@ export class TodoSynchronizer {
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 
-			// Create lookup maps
+			// 検索用マップを作成
 			const msftTasksById = new Map(msftTasks.map(task => [task.id, task]));
 
 			const listId = this.apiClient.getDefaultListId();
 
-			// Sync Microsoft completions to Obsidian
+			// Microsoft完了タスクをObsidianに同期
 			for (const msftTask of msftTasks) {
-				// Find matching Obsidian task using metadata
+				// メタデータを使用して対応するObsidianタスクを検索
 				const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
-				if (!metadata) continue;
+				if (!metadata) {
+					this.logger.debug('No metadata found for Microsoft task', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						status: msftTask.status
+					});
+					continue;
+				}
 				
-				// Find the actual task in daily notes
+				// デイリーノートから実際のタスクを検索
+				// メタデータのクリーンなタイトルと照合するためObsidianタスクのタイトルをクリーン化
+				// これによりObsidianタスクに[todo::ID]があってもMicrosoft → Obsidian同期が動作する
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. cleanTaskTitle()の代わりにnormalizeTitle()を使用
+				//    → 却下理由: normalizeTitle は小文字化のみで[todo::ID]パターンを除去しない
+				// 2. メタデータにタスクの行番号を保存
+				//    → 却下理由: ユーザーがファイルを編集すると行番号が変わり、メタデータが古くなる
+				// 3. あいまい一致や正規表現パターンを使用
+				//    → 却下理由: 間違ったタスクにマッチしてデータ破損を引き起こす可能性がある
 				const dailyTask = allDailyTasks.find(task => 
 					task.startDate === metadata.date && 
-					this.normalizeTitle(task.title) === this.normalizeTitle(metadata.title)
+					this.cleanTaskTitle(task.title) === metadata.title
 				);
-				if (!dailyTask) continue;
+				if (!dailyTask) {
+					this.logger.debug('No matching daily task found for metadata', {
+						metadataDate: metadata.date,
+						metadataTitle: metadata.title,
+						availableTasks: allDailyTasks
+							.filter(t => t.startDate === metadata.date)
+							.map(t => ({ title: t.title, cleanedTitle: this.cleanTaskTitle(t.title) }))
+					});
+					continue;
+				}
 
 				const msftCompleted = msftTask.status === 'completed';
 				
-				if (msftCompleted && !dailyTask.completed) {
-					try {
-						let completionDate: string;
-						
-						// Validate and parse completedDateTime
-						if (msftTask.completedDateTime && msftTask.completedDateTime.trim() !== '') {
-							this.logger.debug('Processing completedDateTime', {
-								taskId: msftTask.id,
-								title: msftTask.title,
-								completedDateTime: msftTask.completedDateTime,
-								type: typeof msftTask.completedDateTime
-							});
-							try {
-								const parsedDate = new Date(msftTask.completedDateTime);
-								// Check if the date is valid
-								if (!isNaN(parsedDate.getTime())) {
-									completionDate = parsedDate.toISOString().slice(0, 10);
-								} else {
-									// Invalid date, use current date
-									this.logger.warn('Invalid completedDateTime format, using current date', {
-										taskId: msftTask.id,
-										completedDateTime: msftTask.completedDateTime
-									});
-									completionDate = new Date().toISOString().slice(0, 10);
-								}
-							} catch (dateError) {
-								// Date parsing failed, use current date
-								this.logger.warn('Failed to parse completedDateTime, using current date', {
-									taskId: msftTask.id,
-									completedDateTime: msftTask.completedDateTime,
-									error: dateError
-								});
-								completionDate = new Date().toISOString().slice(0, 10);
-							}
-						} else {
-							// No completedDateTime provided, use current date
-							completionDate = new Date().toISOString().slice(0, 10);
-						}
-
-						await this.dailyNoteManager.updateTaskCompletion(
-							dailyTask.filePath!,
-							dailyTask.lineNumber,
-							true,
-							completionDate
-						);
-						completed++;
-						this.logger.debug('Marked Obsidian task as completed from Microsoft', {
-							taskId: msftTask.id,
-							title: msftTask.title,
-							filePath: dailyTask.filePath
-						});
-					} catch (error) {
-						const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-						errors.push(errorMsg);
-					}
+				if (!msftCompleted || dailyTask.completed) continue;
+				
+				try {
+					const completionDate = this.parseCompletionDate(msftTask);
+					
+					await this.dailyNoteManager.updateTaskCompletion(
+						dailyTask.filePath!,
+						dailyTask.lineNumber,
+						true,
+						completionDate
+					);
+					completed++;
+					this.logger.debug('Marked Obsidian task as completed from Microsoft', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						filePath: dailyTask.filePath
+					});
+				} catch (error) {
+					const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+					errors.push(errorMsg);
 				}
 			}
 
-			// Sync Obsidian completions to Microsoft
+			// Obsidian完了タスクをMicrosoftに同期
 			for (const dailyTask of allDailyTasks) {
 				if (!dailyTask.completed || !dailyTask.startDate) continue;
 				
-				// Look up Microsoft task ID from metadata
-				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, dailyTask.title);
-				if (!msftTaskId) continue;
+				// メタデータからMicrosoftタスクIDを検索
+				// メタデータはクリーンなタイトルで保存されているため、検索前にタイトルをクリーン化
+				// これによりObsidianでの[todo::ID]の有無に関わらず一貫した照合が可能
+				//
+				// 検討したが採用しなかった代替案:
+				// 1. メタデータに元のタイトルとクリーンなタイトルの両方を保存
+				//    → 却下理由: ストレージの複雑性が増し、既存ユーザーのマイグレーションが必要
+				// 2. メタデータを元のタイトルで保存し、比較時にクリーン化
+				//    → 却下理由: 検索のたびにクリーン化が必要でパフォーマンスに影響
+				//    → また、同じタスクにIDが追加/削除された時に重複エントリが作成される
+				// 3. Microsoft To-DoのタイトルからIDを削除
+				//    → 却下理由: ユーザーが他のワークフローでMicrosoft To-DoでIDを見たい場合がある
+				// 4. タイトルに埋め込む代わりに別のIDフィールドを使用
+				//    → 却下理由: 既存のタスク形式に大幅な変更が必要
+				const cleanedTitle = this.cleanTaskTitle(dailyTask.title);
+				const msftTaskId = this.metadataStore.getMsftTaskId(dailyTask.startDate, cleanedTitle);
+				if (!msftTaskId) {
+					this.logger.debug('No metadata found for completed Obsidian task', {
+						originalTitle: dailyTask.title,
+						cleanedTitle,
+						startDate: dailyTask.startDate
+					});
+					continue;
+				}
 				
 				const matchingMsftTask = msftTasksById.get(msftTaskId);
 
-				if (matchingMsftTask && matchingMsftTask.status !== 'completed') {
-					try {
-						if (!listId) {
-							throw new Error('No default list ID available');
-						}
-
-						await this.apiClient.completeTask(listId, matchingMsftTask.id);
-						completed++;
-						this.logger.debug('Marked Microsoft task as completed from Obsidian', {
-							taskId: matchingMsftTask.id,
-							title: dailyTask.title,
-							filePath: dailyTask.filePath
-						});
-					} catch (error) {
-						const errorMsg = `Failed to complete Microsoft task "${dailyTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
-						errors.push(errorMsg);
+				if (!matchingMsftTask || matchingMsftTask.status === 'completed') continue;
+				
+				try {
+					if (!listId) {
+						throw new Error('No default list ID available');
 					}
+
+					await this.apiClient.completeTask(listId, matchingMsftTask.id);
+					completed++;
+					this.logger.debug('Marked Microsoft task as completed from Obsidian', {
+						taskId: matchingMsftTask.id,
+						title: dailyTask.title,
+						filePath: dailyTask.filePath
+					});
+				} catch (error) {
+					const errorMsg = `Failed to complete Microsoft task "${dailyTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+					errors.push(errorMsg);
 				}
 			}
 
@@ -431,10 +468,10 @@ export class TodoSynchronizer {
 
 		for (const obsidianTask of obsidianTasks) {
 			// Skip if we already have metadata for this task
-			if (obsidianTask.startDate) {
-				const existingMsftId = this.metadataStore.getMsftTaskId(obsidianTask.startDate, obsidianTask.title);
-				if (existingMsftId) continue;
-			}
+			if (!obsidianTask.startDate) continue;
+			
+			const existingMsftId = this.metadataStore.getMsftTaskId(obsidianTask.startDate, obsidianTask.title);
+			if (existingMsftId) continue;
 
 			for (const msftTask of msftTasks) {
 				// Simple title matching for now
@@ -462,8 +499,9 @@ export class TodoSynchronizer {
 		for (const msftTask of msftTasks) {
 			const cleanedTitle = this.cleanTaskTitle(msftTask.title);
 			// Use due date if available, otherwise use creation date
+			// For due dates, use the date part directly to avoid timezone issues
 			const msftTaskDate = msftTask.dueDateTime 
-				? new Date(msftTask.dueDateTime.dateTime).toISOString().slice(0, 10)
+				? msftTask.dueDateTime.dateTime.split('T')[0]
 				: new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
 			
 			// Check if we have metadata for this task
@@ -487,54 +525,98 @@ export class TodoSynchronizer {
 
 	private async ensureNoteExists(notePath: string, date: string): Promise<void> {
 		try {
-			// Get access to DailyNoteManager's app instance
-			const app = (this.dailyNoteManager as any).app;
-			
-			const file = app.vault.getAbstractFileByPath(notePath);
-			if (file) {
-				this.logger.debug('Note already exists', { notePath });
-				return;
-			}
-
-			// Create the note with basic daily note structure
-			const dateObj = new Date(date);
-			const defaultContent = await this.generateDailyNoteContent(dateObj);
-			
-			await app.vault.create(notePath, defaultContent);
-			this.logger.info('Created daily note', { notePath, date });
+			// Use DailyNoteManager to create the note with template support
+			await this.dailyNoteManager.createDailyNote(date);
+			this.logger.info('Ensured daily note exists', { notePath, date });
 		} catch (error) {
 			this.logger.error('Failed to ensure note exists', { notePath, date, error });
 			throw error;
 		}
 	}
 
-	private async generateDailyNoteContent(date: Date): Promise<string> {
-		const dateString = date.toLocaleDateString('en-US', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		});
+	private async cleanMicrosoftTodoTitles(tasks: TodoTask[]): Promise<void> {
+		const listId = this.apiClient.getDefaultListId();
+		if (!listId) return;
 
-		return `# Daily Note - ${dateString}
-
-## ToDo
-
-## Notes
-
-## Reflections
-
-`;
+		for (const task of tasks) {
+			if (!task.title.includes('[todo::')) continue;
+			
+			const cleanedTitle = this.cleanTaskTitle(task.title);
+			try {
+				await this.apiClient.updateTaskTitle(listId, task.id, cleanedTitle);
+				this.logger.info('[DEBUG] Cleaned Microsoft Todo task title', {
+					taskId: task.id,
+					originalTitle: task.title,
+					cleanedTitle: cleanedTitle
+				});
+				// Update the task object with cleaned title
+				task.title = cleanedTitle;
+			} catch (error) {
+				this.logger.error('Failed to clean Microsoft Todo task title', {
+					taskId: task.id,
+					title: task.title,
+					error
+				});
+			}
+		}
 	}
 
 	private normalizeTitle(title: string): string {
 		return title.trim().toLowerCase().replace(/\s+/g, ' ');
 	}
 
+	private parseCompletionDate(task: TodoTask): string {
+		// No completedDateTime provided, use current date
+		if (!task.completedDateTime || task.completedDateTime.trim() === '') {
+			return new Date().toISOString().slice(0, 10);
+		}
+
+		this.logger.debug('Processing completedDateTime', {
+			taskId: task.id,
+			title: task.title,
+			completedDateTime: task.completedDateTime,
+			type: typeof task.completedDateTime
+		});
+
+		try {
+			const parsedDate = new Date(task.completedDateTime);
+			
+			// Check if the date is valid
+			if (isNaN(parsedDate.getTime())) {
+				this.logger.warn('Invalid completedDateTime format, using current date', {
+					taskId: task.id,
+					completedDateTime: task.completedDateTime
+				});
+				return new Date().toISOString().slice(0, 10);
+			}
+			
+			return parsedDate.toISOString().slice(0, 10);
+		} catch (dateError) {
+			// Date parsing failed, use current date
+			this.logger.warn('Failed to parse completedDateTime, using current date', {
+				taskId: task.id,
+				completedDateTime: task.completedDateTime,
+				error: dateError
+			});
+			return new Date().toISOString().slice(0, 10);
+		}
+	}
+
 	private cleanTaskTitle(title: string): string {
 		// Remove [todo::ID] pattern from the title
-		const cleaned = title.replace(/\[todo::[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-		this.logger.info('[DEBUG] Cleaning task title', { original: title, cleaned });
+		// First remove [todo::...] patterns, then normalize whitespace
+		let cleaned = title;
+		
+		// Remove all [todo::...] patterns
+		cleaned = cleaned.replace(/\[todo::[^\]]*\]/g, '');
+		
+		// Normalize whitespace - replace multiple spaces with single space
+		cleaned = cleaned.replace(/\s+/g, ' ');
+		
+		// Trim leading and trailing whitespace
+		cleaned = cleaned.trim();
+		
+		this.logger.debug('Cleaning task title', { original: title, cleaned });
 		return cleaned;
 	}
 }

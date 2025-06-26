@@ -1,23 +1,23 @@
-// Tests for TodoApiClient (Direct Fetch Implementation)
+/**
+ * TodoApiClientのテストスイート
+ * Microsoft Graph APIとの通信、タスクの作成・取得・更新機能をテスト
+ */
 
 import { TodoApiClient } from '../../src/api/TodoApiClient';
 import { TodoTask, TodoList, TokenProvider } from '../../src/types';
+import { createMockLogger } from '../__mocks__/mockFactories';
 
-// Mock fetch globally
+// fetchをグローバルにモック化
 global.fetch = jest.fn();
 
 describe('TodoApiClient', () => {
 	let apiClient: TodoApiClient;
-	let mockLogger: any;
+	let mockLogger: ReturnType<typeof createMockLogger>;
 	let mockTokenProvider: TokenProvider;
 
 	beforeEach(() => {
-		mockLogger = {
-			debug: jest.fn(),
-			info: jest.fn(),
-			error: jest.fn(),
-		};
-		
+		// モックの初期化
+		mockLogger = createMockLogger();
 		mockTokenProvider = jest.fn().mockResolvedValue('mock-access-token');
 		apiClient = new TodoApiClient(mockLogger);
 	});
@@ -26,36 +26,43 @@ describe('TodoApiClient', () => {
 		jest.clearAllMocks();
 	});
 
-	describe('initialization', () => {
-		it('should initialize with token provider', () => {
+	describe('初期化（initialization）', () => {
+		it('トークンプロバイダーで初期化される', () => {
+			// When: トークンプロバイダーで初期化
 			apiClient.initialize(mockTokenProvider);
+			
+			// Then: 初期化済みになる
 			expect(apiClient.isInitialized()).toBe(true);
 		});
 
-		it('should require initialization before API calls', async () => {
+		it('API呼び出し前に初期化が必要', async () => {
+			// Given: 未初期化のAPIクライアント
+			// When/Then: APIを呼ぶとエラーが発生
 			await expect(apiClient.getUserInfo()).rejects.toThrow('API client not initialized');
 		});
 	});
 
-	describe('getUserInfo', () => {
+	describe('ユーザー情報取得（getUserInfo）', () => {
 		beforeEach(() => {
 			apiClient.initialize(mockTokenProvider);
 		});
 
-		it('should fetch user information successfully', async () => {
+		it('ユーザー情報を正常に取得する', async () => {
+			// Given: モックのユーザーデータ
 			const mockUserData = {
 				id: 'user-123',
 				displayName: 'Test User',
 				mail: 'test@example.com',
 			};
-
 			(fetch as jest.Mock).mockResolvedValue({
 				ok: true,
 				json: () => Promise.resolve(mockUserData),
 			});
 
+			// When: ユーザー情報を取得
 			const userInfo = await apiClient.getUserInfo();
 
+			// Then: 正しいAPIエンドポイントが呼ばれる
 			expect(fetch).toHaveBeenCalledWith(
 				'https://graph.microsoft.com/v1.0/me',
 				expect.objectContaining({
@@ -65,6 +72,7 @@ describe('TodoApiClient', () => {
 				})
 			);
 
+			// And: 正しいユーザー情報が返される
 			expect(userInfo).toEqual({
 				id: 'user-123',
 				displayName: 'Test User',
@@ -72,23 +80,25 @@ describe('TodoApiClient', () => {
 			});
 		});
 
-		it('should handle API errors', async () => {
+		it('APIエラーを適切に処理する', async () => {
+			// Given: 401エラーのレスポンス
 			(fetch as jest.Mock).mockResolvedValue({
 				ok: false,
 				status: 401,
 				statusText: 'Unauthorized',
 			});
 
+			// When/Then: エラーがスローされる
 			await expect(apiClient.getUserInfo()).rejects.toThrow('API_ERROR');
 		});
 	});
 
-	describe('getOrCreateTaskList', () => {
+	describe('タスクリストの取得または作成（getOrCreateTaskList）', () => {
 		beforeEach(() => {
 			apiClient.initialize(mockTokenProvider);
 		});
 
-		it('should return existing task list if found', async () => {
+		it('既存のタスクリストが見つかった場合はそれを返す', async () => {
 			const mockLists = {
 				value: [
 					{ id: 'list-1', displayName: 'Obsidian Tasks' },

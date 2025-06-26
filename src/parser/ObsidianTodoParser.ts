@@ -33,28 +33,13 @@ export class ObsidianTodoParser {
 			let sectionEndIndex = lines.length;
 
 			if (taskSectionHeading) {
-				for (let i = 0; i < lines.length; i++) {
-					const line = lines[i].trim();
-					if (line === taskSectionHeading.trim()) {
-						sectionStartIndex = i;
-						// Find the end of this section (next heading of same or higher level)
-						const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
-						for (let j = i + 1; j < lines.length; j++) {
-							const nextLine = lines[j].trim();
-							const nextHeadingMatch = nextLine.match(/^(#+)\s/);
-							if (nextHeadingMatch && nextHeadingMatch[1].length <= currentLevel) {
-								sectionEndIndex = j;
-								break;
-							}
-						}
-						break;
-					}
-				}
-
-				// If section not found, return empty array
-				if (sectionStartIndex === -1) {
+				const sectionBoundaries = this.findSectionBoundaries(lines, taskSectionHeading);
+				if (!sectionBoundaries) {
+					this.logger.debug(`Task section "${taskSectionHeading}" not found in ${filePath}`);
 					return [];
 				}
+				sectionStartIndex = sectionBoundaries.start;
+				sectionEndIndex = sectionBoundaries.end;
 			}
 
 			// Parse tasks only within the specified section (or entire file if no section specified)
@@ -65,50 +50,50 @@ export class ObsidianTodoParser {
 				const line = lines[i];
 				const checkboxMatch = line.match(/^(\s*)-\s*\[([x\s])\]\s*(.+)/);
 				
-				if (checkboxMatch) {
-					// Skip empty or whitespace-only tasks
-					const taskText = checkboxMatch[3].trim();
-					if (!taskText || taskText.length === 0) {
-						this.logger.debug(`Skipping empty task at line ${i + 1} in ${filePath}`);
-						continue;
-					}
-
-					const [, indent, checked] = checkboxMatch;
-					const isCompleted = checked.toLowerCase() === 'x';
-					
-					// Extract completion date from DataView format
-					const completionMatch = taskText.match(/\[completion::\s*(\d{4}-\d{2}-\d{2})\]/);
-					const completionDate = completionMatch ? completionMatch[1] : undefined;
-					
-					// Extract due date
-					const dueDateMatch = taskText.match(/due:\s*(\d{4}-\d{2}-\d{2})/);
-					const dueDate = dueDateMatch ? dueDateMatch[1] : undefined;
-					
-					// Microsoft Todo ID is no longer stored in task text
-					const microsoftTodoId = undefined;
-					
-					// Extract clean title
-					const title = this.extractTaskTitle(taskText);
-
-					// Skip if title is empty after cleaning
-					if (!title || title.trim().length === 0) {
-						this.logger.debug(`Skipping task with empty title at line ${i + 1} in ${filePath}`);
-						continue;
-					}
-
-					const task: ObsidianTask = {
-						file: filePath,
-						line: i,
-						text: title,
-						completed: isCompleted,
-						completionDate,
-						dueDate,
-						microsoftTodoId,
-						indent
-					};
-
-					tasks.push(task);
+				if (!checkboxMatch) continue;
+				
+				// Skip empty or whitespace-only tasks
+				const taskText = checkboxMatch[3].trim();
+				if (!taskText || taskText.length === 0) {
+					this.logger.debug(`Skipping empty task at line ${i + 1} in ${filePath}`);
+					continue;
 				}
+
+				const [, indent, checked] = checkboxMatch;
+				const isCompleted = checked.toLowerCase() === 'x';
+				
+				// Extract completion date from DataView format
+				const completionMatch = taskText.match(/\[completion::\s*(\d{4}-\d{2}-\d{2})\]/);
+				const completionDate = completionMatch ? completionMatch[1] : undefined;
+				
+				// Extract due date
+				const dueDateMatch = taskText.match(/due:\s*(\d{4}-\d{2}-\d{2})/);
+				const dueDate = dueDateMatch ? dueDateMatch[1] : undefined;
+				
+				// Microsoft Todo ID is no longer stored in task text
+				const microsoftTodoId = undefined;
+				
+				// Extract clean title
+				const title = this.extractTaskTitle(taskText);
+
+				// Skip if title is empty after cleaning
+				if (!title || title.trim().length === 0) {
+					this.logger.debug(`Skipping task with empty title at line ${i + 1} in ${filePath}`);
+					continue;
+				}
+
+				const task: ObsidianTask = {
+					file: filePath,
+					line: i,
+					text: title,
+					completed: isCompleted,
+					completionDate,
+					dueDate,
+					microsoftTodoId,
+					indent
+				};
+
+				tasks.push(task);
 			}
 
 			// Only log if there are tasks
@@ -283,5 +268,33 @@ export class ObsidianTodoParser {
 			microsoftTodoId,
 			indent
 		};
+	}
+
+	private findSectionBoundaries(lines: string[], taskSectionHeading: string): { start: number; end: number } | null {
+		const targetHeading = taskSectionHeading.trim();
+		
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i].trim();
+			if (line !== targetHeading) continue;
+			
+			// Found the section start
+			const currentLevel = (taskSectionHeading.match(/^#+/) || [''])[0].length;
+			let sectionEndIndex = lines.length;
+			
+			// Find the end of this section (next heading of same or higher level)
+			for (let j = i + 1; j < lines.length; j++) {
+				const nextLine = lines[j].trim();
+				const nextHeadingMatch = nextLine.match(/^(#+)\s/);
+				if (!nextHeadingMatch) continue;
+				if (nextHeadingMatch[1].length <= currentLevel) {
+					sectionEndIndex = j;
+					break;
+				}
+			}
+			
+			return { start: i, end: sectionEndIndex };
+		}
+		
+		return null;
 	}
 }

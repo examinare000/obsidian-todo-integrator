@@ -238,39 +238,36 @@ export class TodoIntegratorPlugin extends Plugin {
 			}
 
 			// Apply Daily Notes path if user hasn't set it manually
-			if (!this.settings._userSetDailyNotesPath) {
-				// Only apply if the current path is still the default value
-				if (this.settings.dailyNotesPath === 'Daily Notes' && this.settings.dailyNotesPath !== dailyNotesDefaults.folder) {
-					this.settings.dailyNotesPath = dailyNotesDefaults.folder;
-					settingsChanged = true;
-					this.logger?.info('Inherited Daily Notes folder from plugin', {
-						folder: dailyNotesDefaults.folder
-					});
-				}
+			if (!this.settings._userSetDailyNotesPath && 
+				this.settings.dailyNotesPath === 'Daily Notes' && 
+				this.settings.dailyNotesPath !== dailyNotesDefaults.folder) {
+				this.settings.dailyNotesPath = dailyNotesDefaults.folder;
+				settingsChanged = true;
+				this.logger?.info('Inherited Daily Notes folder from plugin', {
+					folder: dailyNotesDefaults.folder
+				});
 			}
 
 			// Apply Daily Notes date format if user hasn't set it manually
-			if (!this.settings._userSetDailyNoteDateFormat) {
-				// Only apply if the current format is still the default value
-				if (this.settings.dailyNoteDateFormat === 'YYYY-MM-DD' && this.settings.dailyNoteDateFormat !== dailyNotesDefaults.dateFormat) {
-					this.settings.dailyNoteDateFormat = dailyNotesDefaults.dateFormat;
-					settingsChanged = true;
-					this.logger?.info('Inherited Daily Notes date format from plugin', {
-						dateFormat: dailyNotesDefaults.dateFormat
-					});
-				}
+			if (!this.settings._userSetDailyNoteDateFormat && 
+				this.settings.dailyNoteDateFormat === 'YYYY-MM-DD' && 
+				this.settings.dailyNoteDateFormat !== dailyNotesDefaults.dateFormat) {
+				this.settings.dailyNoteDateFormat = dailyNotesDefaults.dateFormat;
+				settingsChanged = true;
+				this.logger?.info('Inherited Daily Notes date format from plugin', {
+					dateFormat: dailyNotesDefaults.dateFormat
+				});
 			}
 
 			// Apply Daily Notes template if user hasn't set it manually
-			if (!this.settings._userSetDailyNoteTemplate && dailyNotesDefaults.template) {
-				// Only apply if no template is currently set
-				if (!this.settings.dailyNoteTemplate) {
-					this.settings.dailyNoteTemplate = dailyNotesDefaults.template;
-					settingsChanged = true;
-					this.logger?.info('Inherited Daily Notes template from plugin', {
-						template: dailyNotesDefaults.template
-					});
-				}
+			if (!this.settings._userSetDailyNoteTemplate && 
+				dailyNotesDefaults.template && 
+				!this.settings.dailyNoteTemplate) {
+				this.settings.dailyNoteTemplate = dailyNotesDefaults.template;
+				settingsChanged = true;
+				this.logger?.info('Inherited Daily Notes template from plugin', {
+					template: dailyNotesDefaults.template
+				});
 			}
 
 			// Save settings if any changes were made

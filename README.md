@@ -1,94 +1,151 @@
-# Obsidian Sample Plugin
+# Obsidian Todo Integrator
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Microsoft To-DoとObsidianのDaily Noteを双方向同期するObsidianプラグインです。
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## 機能
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+### 📝 双方向タスク同期
+- **Microsoft To-Do → Obsidian**: 新規タスクを自動的にDaily Noteに追加
+- **Obsidian → Microsoft To-Do**: Daily Noteのタスクを自動的にMicrosoft To-Doに作成
+- **完了状態の同期**: どちらで完了してももう一方に反映
 
-## First time developing plugins?
+### 🎯 主な特徴
+- **重複防止**: 同じタスクが複数作成されることを防ぐ
+- **日付ベース管理**: タスクを適切な日付のDaily Noteに配置
+- **メタデータ管理**: タスクの関連付けを見えない形で管理
+- **自動クリーンアップ**: 古いメタデータを自動削除
 
-Quick starting guide for new plugin devs:
+### 🔒 セキュリティ
+- 安全な認証フロー（Microsoft Device Code Flow）
+- 入力値のサニタイゼーション
+- エラー時の機密情報マスキング
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## インストール
 
-## Releasing new releases
+### 必要条件
+- Obsidian v0.15.0以上
+- Microsoftアカウント（個人またはAzure AD）
+- インターネット接続
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### インストール方法
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+#### コミュニティプラグインから（推奨）
+1. Obsidianの設定を開く
+2. 「コミュニティプラグイン」→「ブラウズ」
+3. 「Todo Integrator」を検索
+4. インストール → 有効化
 
-## Adding your plugin to the community plugin list
+#### 手動インストール
+1. [最新リリース](https://github.com/examinare000/obsidian-todo-integrator/releases/latest)から以下をダウンロード：
+   - `main.js`
+   - `manifest.json`
+2. Obsidianのプラグインフォルダに`obsidian-todo-integrator`フォルダを作成
+   - Windows: `%APPDATA%\Obsidian\Vault\.obsidian\plugins\`
+   - macOS: `~/Library/Application Support/Obsidian/Vault/.obsidian/plugins/`
+   - Linux: `~/.config/Obsidian/Vault/.obsidian/plugins/`
+3. ダウンロードしたファイルをフォルダにコピー
+4. Obsidianを再起動して、設定でプラグインを有効化
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## 使い方
 
-## How to use
+### 初期設定
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. **プラグインを有効化**
+   - 設定 → コミュニティプラグイン → Todo Integratorを有効化
 
-## Manually installing the plugin
+2. **Microsoftアカウントでログイン**
+   - プラグイン設定を開く
+   - 「Authenticate with Microsoft」をクリック
+   - 表示されたコードをブラウザで入力
+   - Microsoftアカウントでログイン
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+3. **Daily Note設定**（オプション）
+   - Daily Noteフォルダのパス設定
+   - 日付フォーマットの設定
+   - TODOセクションのヘッダー設定
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+### 基本的な使い方
 
-## Funding URL
+#### 手動同期
+- サイドバーの同期ボタンをクリック
+- または、コマンドパレットから「Sync with Microsoft Todo」を実行
 
-You can include funding URLs where people who use your plugin can financially support it.
+#### 自動同期
+- 設定で自動同期を有効化
+- 指定した間隔で自動的に同期
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+#### タスクの管理
+- **Obsidianでタスク作成**: Daily Noteに`- [ ] タスク名`形式で記述
+- **Microsoft To-Doでタスク作成**: 通常通りタスクを作成（期日設定推奨）
+- **タスク完了**: どちらで完了してもOK
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
+## 設定項目
 
-If you have multiple URLs, you can also do:
+### 認証設定
+- **Advanced Configuration**: カスタムAzure App Registrationの使用
+- **Client ID / Tenant ID**: カスタム設定時のみ必要
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+### 同期設定
+- **Auto Sync**: 自動同期の有効/無効
+- **Sync Interval**: 自動同期の間隔（分）
+- **Task List Name**: Microsoft To-Doのリスト名
 
-## API Documentation
+### Daily Note設定
+- **Daily Notes Folder**: Daily Noteを保存するフォルダ
+- **Date Format**: 日付フォーマット（例: `YYYY-MM-DD`）
+- **Template File**: 新規Daily Noteのテンプレート
+- **Task Section Heading**: タスクセクションのヘッダー（例: `## TODO`）
 
-See https://github.com/obsidianmd/obsidian-api
+### 詳細設定
+- **Log Level**: ログの詳細度（debug/info/error）
+
+## トラブルシューティング
+
+### 同期されない
+1. インターネット接続を確認
+2. 認証が有効か確認（設定画面で再認証）
+3. ログレベルを「debug」に設定して詳細を確認
+
+### 重複タスクが作成される
+- 通常は重複検出機能により防がれます
+- 発生する場合は、タスクのタイトルが微妙に異なる可能性があります
+
+### エラーメッセージ
+- `AUTH_FAILED`: 認証の有効期限切れ → 再認証が必要
+- `NETWORK_ERROR`: ネットワーク接続エラー → 接続を確認
+- `FILE_NOT_FOUND`: Daily Noteが見つからない → パス設定を確認
+
+## よくある質問
+
+**Q: どのMicrosoftアカウントが使えますか？**
+A: 個人用Microsoftアカウント、職場/学校アカウント（Azure AD）の両方に対応しています。
+
+**Q: タスクはどこに保存されますか？**
+A: Obsidianでは指定した日付のDaily Noteに、Microsoft To-Doでは指定したリスト（デフォルト: "Obsidian Tasks"）に保存されます。
+
+**Q: [todo::ID]というテキストが表示されます**
+A: 過去のバージョンのバグで付与されたものです。最新版では自動的に除去されます。
+
+**Q: プライバシーは大丈夫ですか？**
+A: すべてのデータはローカルとMicrosoftのサーバー間でのみやり取りされます。第三者のサーバーは使用しません。
+
+## ライセンス
+
+MIT License - 詳細は[LICENSE](LICENSE)ファイルを参照してください。
+
+## 開発者向け情報
+
+開発に参加したい方は[開発ガイド](docs/development.md)を参照してください。
+
+## サポート
+
+- バグ報告: [GitHub Issues](https://github.com/examinare000/obsidian-todo-integrator/issues)
+- 機能リクエスト: [GitHub Discussions](https://github.com/examinare000/obsidian-todo-integrator/discussions)
+- ドキュメント: [Wiki](https://github.com/examinare000/obsidian-todo-integrator/wiki)
+
+## 謝辞
+
+このプラグインは以下のプロジェクトを使用しています：
+- [Obsidian API](https://github.com/obsidianmd/obsidian-api)
+- [Microsoft Authentication Library (MSAL)](https://github.com/AzureAD/microsoft-authentication-library-for-js)
+- [Microsoft Graph API](https://developer.microsoft.com/en-us/graph)
