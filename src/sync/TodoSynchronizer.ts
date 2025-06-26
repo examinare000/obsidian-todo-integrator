@@ -636,6 +636,30 @@ export class TodoSynchronizer {
 			// すべてのデイリーノートファイルを取得
 			const dailyNoteFiles = await this.dailyNoteManager.getDailyNoteFiles();
 			
+			// デイリーノートファイルから日付を抽出
+			const existingDates = new Set<string>();
+			for (const file of dailyNoteFiles) {
+				const date = this.extractDateFromFilename(file.basename);
+				if (date) {
+					existingDates.add(date);
+				}
+			}
+			
+			// すべてのメタデータを取得
+			const allMetadata = this.metadataStore.getAllMetadata();
+			
+			// デイリーノートファイルが存在しない日付のメタデータを削除
+			for (const metadata of allMetadata) {
+				if (!existingDates.has(metadata.date)) {
+					this.logger.info('デイリーノートファイルが存在しない日付のメタデータを削除', {
+						date: metadata.date,
+						title: metadata.title,
+						msftTaskId: metadata.msftTaskId
+					});
+					await this.metadataStore.removeMetadataByMsftId(metadata.msftTaskId);
+				}
+			}
+			
 			// 日付ごとにタスクを処理
 			for (const file of dailyNoteFiles) {
 				const date = this.extractDateFromFilename(file.basename);
