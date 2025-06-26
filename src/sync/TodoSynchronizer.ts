@@ -4,7 +4,7 @@
 import { App, Plugin } from 'obsidian';
 import { TodoApiClient } from '../api/TodoApiClient';
 import { DailyNoteManager } from './DailyNoteManager';
-import { TaskMetadataStore } from './TaskMetadataStore';
+import { TaskMetadataStore, TaskMetadata } from './TaskMetadataStore';
 import { SimpleLogger } from '../utils/simpleLogger';
 import {
 	TodoTask,
@@ -27,8 +27,8 @@ export class TodoSynchronizer {
 		apiClient: TodoApiClient,
 		dailyNoteManager: DailyNoteManager,
 		logger: Logger,
-		taskSectionHeading: string | undefined,
-		plugin: Plugin
+		plugin: Plugin,
+		taskSectionHeading?: string
 	) {
 		this.apiClient = apiClient;
 		this.dailyNoteManager = dailyNoteManager;
@@ -50,6 +50,10 @@ export class TodoSynchronizer {
 		try {
 			// Ensure today's daily note exists
 			await this.dailyNoteManager.ensureTodayNoteExists();
+
+			// メタデータとデイリーノートの内部同期を実行
+			// タスクの削除や変更を検出してメタデータを更新
+			await this.reconcileMetadataWithDailyNotes();
 
 			// Perform sync operations in sequence
 			const msftToObsidian = await this.syncMsftToObsidian();
@@ -619,5 +623,210 @@ export class TodoSynchronizer {
 		
 		this.logger.debug('Cleaning task title', { original: title, cleaned });
 		return cleaned;
+	}
+
+	/**
+	 * メタデータとデイリーノートの内部同期
+	 * タスクの削除や変更を検出してメタデータを更新
+	 */
+	private async reconcileMetadataWithDailyNotes(): Promise<void> {
+		this.logger.info('デイリーノートとメタデータの内部同期を開始');
+
+		try {
+			// すべてのデイリーノートファイルを取得
+			const dailyNoteFiles = await this.dailyNoteManager.getDailyNoteFiles();
+			
+			// 日付ごとにタスクを処理
+			for (const file of dailyNoteFiles) {
+				const date = this.extractDateFromFilename(file.basename);
+				if (!date) continue;
+
+				// その日のデイリーノートタスクを取得
+				const dailyNoteTasks = await this.dailyNoteManager.getDailyNoteTasks(
+					file.path,
+					this.taskSectionHeading
+				);
+
+				// その日のメタデータを取得
+				const metadataList = this.metadataStore.getMetadataByDate(date);
+
+				// 位置ベースのマッチングを試みる
+				// メタデータとデイリーノートのタスクを順番で比較
+				const processedMsftIds = new Set<string>();
+				
+				// まず、完全一致するタスクをマーク
+				for (const metadata of metadataList) {
+					const exactMatch = dailyNoteTasks.find(task => task.title === metadata.title);
+					if (exactMatch) {
+						processedMsftIds.add(metadata.msftTaskId);
+					}
+				}
+
+				// 位置ベースのマッチング（タスク数が同じ場合）
+				if (metadataList.length === dailyNoteTasks.length) {
+					for (let i = 0; i < metadataList.length; i++) {
+						const metadata = metadataList[i];
+						const dailyTask = dailyNoteTasks[i];
+						
+						if (!processedMsftIds.has(metadata.msftTaskId) && 
+							metadata.title !== dailyTask.title) {
+							// 位置は同じだがタイトルが異なる
+							this.logger.info('位置ベースでタスクタイトルの変更を検出', {
+								oldTitle: metadata.title,
+								newTitle: dailyTask.title,
+								position: i,
+								date
+							});
+
+							await this.metadataStore.updateMetadataByMsftId(metadata.msftTaskId, {
+								title: dailyTask.title
+							});
+							processedMsftIds.add(metadata.msftTaskId);
+						}
+					}
+				}
+
+				// タスクの削除を検出：メタデータにあってデイリーノートにないタスク
+				for (const metadata of metadataList) {
+					if (processedMsftIds.has(metadata.msftTaskId)) continue;
+
+					const existsInDailyNote = dailyNoteTasks.some(
+						task => task.title === metadata.title
+					);
+
+					if (!existsInDailyNote) {
+						// タスクが削除された場合の処理を検討
+						const possibleMatch = this.findPossibleTaskMatch(metadata, dailyNoteTasks);
+						
+						if (possibleMatch) {
+							// タイトルが変更された可能性
+							this.logger.info('タスクタイトルの変更を検出', {
+								oldTitle: metadata.title,
+								newTitle: possibleMatch.title,
+								date
+							});
+
+							// メタデータを更新
+							await this.metadataStore.updateMetadataByMsftId(metadata.msftTaskId, {
+								title: possibleMatch.title
+							});
+						} else {
+							// タスクが完全に削除された
+							this.logger.info('タスクの削除を検出', {
+								title: metadata.title,
+								date
+							});
+
+							// メタデータを削除
+							await this.metadataStore.removeMetadataByMsftId(metadata.msftTaskId);
+						}
+					}
+				}
+
+				// 変更されたタスクを検出：位置や部分一致で判定
+				const unmatchedTasks = dailyNoteTasks.filter(
+					task => !this.metadataStore.hasMetadataForTask(date, task.title)
+				);
+
+				for (const unmatchedTask of unmatchedTasks) {
+					// 部分一致でメタデータを探す
+					const partialMatch = this.metadataStore.findByPartialTitle(date, unmatchedTask.title);
+					
+					if (partialMatch) {
+						this.logger.info('部分一致によるタスクの変更を検出', {
+							oldTitle: partialMatch.title,
+							newTitle: unmatchedTask.title,
+							date
+						});
+
+						// メタデータを更新
+						await this.metadataStore.updateMetadataByMsftId(partialMatch.msftTaskId, {
+							title: unmatchedTask.title
+						});
+					}
+				}
+			}
+
+			this.logger.info('内部同期が完了しました');
+
+		} catch (error) {
+			const context: ErrorContext = {
+				component: 'TodoSynchronizer',
+				method: 'reconcileMetadataWithDailyNotes',
+				timestamp: new Date().toISOString(),
+				details: { error }
+			};
+			this.logger.error('内部同期中にエラーが発生しました', context);
+			// エラーは記録するが、同期プロセス全体は継続
+		}
+	}
+
+	/**
+	 * 削除されたタスクの代わりに変更された可能性のあるタスクを探す
+	 */
+	private findPossibleTaskMatch(metadata: TaskMetadata, dailyNoteTasks: DailyNoteTask[]): DailyNoteTask | null {
+		// メタデータにないタスクのみを対象
+		const unmatchedTasks = dailyNoteTasks.filter(
+			task => !this.metadataStore.hasMetadataForTask(metadata.date, task.title)
+		);
+
+		// 部分一致で探す
+		for (const task of unmatchedTasks) {
+			// 元のタイトルの一部が含まれている
+			if (task.title.toLowerCase().includes(metadata.title.toLowerCase()) ||
+				metadata.title.toLowerCase().includes(task.title.toLowerCase())) {
+				return task;
+			}
+
+			// 共通の単語が多い
+			const metadataWords = metadata.title.toLowerCase().split(/\s+/);
+			const taskWords = task.title.toLowerCase().split(/\s+/);
+			const commonWords = metadataWords.filter(word => taskWords.includes(word));
+			
+			if (commonWords.length >= Math.min(metadataWords.length, taskWords.length) * 0.5) {
+				return task;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * ファイル名から日付を抽出
+	 */
+	private extractDateFromFilename(filename: string): string | null {
+		// 一般的な日付形式にマッチ
+		const datePatterns = [
+			/(\d{4}-\d{2}-\d{2})/,     // YYYY-MM-DD
+			/(\d{2}-\d{2}-\d{4})/,     // DD-MM-YYYY or MM-DD-YYYY
+			/(\d{4}\/\d{2}\/\d{2})/,   // YYYY/MM/DD
+			/(\d{2}\/\d{2}\/\d{4})/,   // DD/MM/YYYY or MM/DD/YYYY
+		];
+
+		for (const pattern of datePatterns) {
+			const match = filename.match(pattern);
+			if (match) {
+				// 日付を YYYY-MM-DD 形式に正規化
+				const datePart = match[1];
+				
+				// すでに YYYY-MM-DD 形式の場合
+				if (/\d{4}-\d{2}-\d{2}/.test(datePart)) {
+					return datePart;
+				}
+				
+				// 他の形式から変換（簡易実装）
+				// より複雑な日付解析が必要な場合は、設定に基づいて処理
+				try {
+					const date = new Date(datePart);
+					if (!isNaN(date.getTime())) {
+						return date.toISOString().split('T')[0];
+					}
+				} catch {
+					// 解析失敗時は無視
+				}
+			}
+		}
+
+		return null;
 	}
 }

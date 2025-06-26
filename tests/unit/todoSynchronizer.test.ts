@@ -81,8 +81,8 @@ describe('TodoSynchronizer', () => {
 			mockApiClient,
 			mockDailyNoteManager,
 			mockLogger,
-			'## TODO',
-			mockPlugin
+			mockPlugin,
+			'## TODO'
 		);
 	});
 
@@ -821,8 +821,8 @@ describe('TodoSynchronizer', () => {
 				mockApiClient,
 				mockDailyNoteManager,
 				mockLogger,
-				'## TODO',
-				mockPlugin
+				mockPlugin,
+				'## TODO'
 			);
 			(synchronizer as any).metadataStore = mockMetadataStore;
 
@@ -876,8 +876,8 @@ describe('TodoSynchronizer', () => {
 				mockApiClient,
 				mockDailyNoteManager,
 				mockLogger,
-				'## TODO',
-				mockPlugin
+				mockPlugin,
+				'## TODO'
 			);
 			(synchronizer as any).metadataStore = mockMetadataStore;
 
@@ -927,8 +927,8 @@ describe('TodoSynchronizer', () => {
 				mockApiClient,
 				mockDailyNoteManager,
 				mockLogger,
-				'## TODO',
-				mockPlugin
+				mockPlugin,
+				'## TODO'
 			);
 			(synchronizer as any).metadataStore = mockMetadataStore;
 

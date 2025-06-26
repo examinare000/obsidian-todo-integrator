@@ -63,7 +63,7 @@ describe('Title Cleaning', () => {
 				loadData: jest.fn().mockResolvedValue({}),
 				saveData: jest.fn().mockResolvedValue(undefined)
 			};
-			synchronizer = new TodoSynchronizer(null as any, mockDailyNoteManager as any, mockLogger, undefined, mockPlugin as any);
+			synchronizer = new TodoSynchronizer(null as any, mockDailyNoteManager as any, mockLogger, mockPlugin as any, undefined);
 		});
 
 		it('should clean task titles with todo IDs', () => {

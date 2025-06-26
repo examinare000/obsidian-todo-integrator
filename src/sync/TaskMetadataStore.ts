@@ -1,7 +1,7 @@
 import { Plugin } from 'obsidian';
 import { SimpleLogger } from '../utils/simpleLogger';
 
-interface TaskMetadata {
+export interface TaskMetadata {
 	msftTaskId: string;
 	date: string;
 	title: string;
@@ -183,5 +183,103 @@ export class TaskMetadataStore {
 		this.metadata.clear();
 		await this.saveMetadata();
 		this.logger.info('All task metadata cleared');
+	}
+
+	/**
+	 * すべてのメタデータを取得する
+	 * 内部同期で使用するため
+	 */
+	getAllMetadata(): TaskMetadata[] {
+		return Array.from(this.metadata.values());
+	}
+
+	/**
+	 * 部分的なタイトルマッチでメタデータを検索
+	 * タスクタイトルが変更された場合の検出に使用
+	 */
+	findByPartialTitle(date: string, partialTitle: string): TaskMetadata | undefined {
+		const searchTerm = partialTitle.toLowerCase();
+		for (const [key, metadata] of this.metadata.entries()) {
+			if (metadata.date === date && metadata.title.toLowerCase().includes(searchTerm)) {
+				return metadata;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Microsoft タスクIDでメタデータを削除
+	 * 内部同期でタスクが削除された場合に使用
+	 */
+	async removeMetadataByMsftId(msftTaskId: string): Promise<boolean> {
+		for (const [key, metadata] of this.metadata.entries()) {
+			if (metadata.msftTaskId === msftTaskId) {
+				this.metadata.delete(key);
+				await this.saveMetadata();
+				this.logger.debug('Metadata removed by Microsoft task ID', { msftTaskId });
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 日付範囲でメタデータを取得
+	 * 複数日にまたがる内部同期で使用
+	 */
+	getMetadataByDateRange(startDate: string, endDate: string): TaskMetadata[] {
+		const results: TaskMetadata[] = [];
+		const start = new Date(startDate).getTime();
+		const end = new Date(endDate).getTime();
+		
+		this.metadata.forEach((metadata) => {
+			const date = new Date(metadata.date).getTime();
+			if (date >= start && date <= end) {
+				results.push(metadata);
+			}
+		});
+		
+		return results;
+	}
+
+	/**
+	 * タスクのメタデータが存在するか確認
+	 * 内部同期で既存タスクの判定に使用
+	 */
+	hasMetadataForTask(date: string, title: string): boolean {
+		const key = this.generateKey(date, title);
+		return this.metadata.has(key);
+	}
+
+	/**
+	 * Microsoft タスクIDでメタデータを更新
+	 * 内部同期でタイトルや日付が変更された場合に使用
+	 */
+	async updateMetadataByMsftId(msftTaskId: string, updates: Partial<TaskMetadata>): Promise<boolean> {
+		for (const [key, metadata] of this.metadata.entries()) {
+			if (metadata.msftTaskId === msftTaskId) {
+				// 古いキーを削除
+				this.metadata.delete(key);
+				
+				// 新しいメタデータを作成
+				const updatedMetadata = {
+					...metadata,
+					...updates,
+					lastSynced: Date.now()
+				};
+				
+				// 新しいキーで保存
+				const newKey = this.generateKey(
+					updates.date || metadata.date,
+					updates.title || metadata.title
+				);
+				this.metadata.set(newKey, updatedMetadata);
+				
+				await this.saveMetadata();
+				this.logger.debug('Metadata updated by Microsoft task ID', { msftTaskId, updates });
+				return true;
+			}
+		}
+		return false;
 	}
 }

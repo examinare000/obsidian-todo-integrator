@@ -1,7 +1,7 @@
 // Daily Note Manager for ToDo Integrator
 // Manages Daily Notes creation, Todo section handling, and task parsing
 
-import { App, TFile, TAbstractFile } from 'obsidian';
+import { App, TFile, TAbstractFile, TFolder, Vault } from 'obsidian';
 import { DailyNoteTask, Logger, ErrorContext } from '../types';
 import { 
 	DATE_FORMAT, 
@@ -798,5 +798,26 @@ export class DailyNoteManager {
 		}
 		
 		return null;
+	}
+
+	/**
+	 * デイリーノートフォルダ内のすべてのファイルを取得
+	 * 内部同期で使用するため
+	 */
+	async getDailyNoteFiles(): Promise<TFile[]> {
+		const folder = this.app.vault.getAbstractFileByPath(this.dailyNotesPath);
+		if (!folder || !(folder instanceof TFolder)) {
+			this.logger.warn('Daily notes folder not found', { path: this.dailyNotesPath });
+			return [];
+		}
+
+		const files: TFile[] = [];
+		Vault.recurseChildren(folder, (child) => {
+			if (child instanceof TFile && child.extension === 'md') {
+				files.push(child);
+			}
+		});
+
+		return files;
 	}
 }

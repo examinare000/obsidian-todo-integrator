@@ -276,18 +276,31 @@ describe('TodoSynchronizer - 内部同期', () => {
 	});
 
 	describe('performFullSync with internal sync', () => {
-		it('should call reconcileMetadataWithDailyNotes before other sync operations', async () => {
+		it('他の同期操作の前にreconcileMetadataWithDailyNotesを呼び出す', async () => {
+			const callOrder: string[] = [];
+
 			// Mock the internal sync method
 			const reconcileSpy = jest.spyOn(synchronizer as any, 'reconcileMetadataWithDailyNotes')
-				.mockResolvedValue(undefined);
+				.mockImplementation(async () => {
+					callOrder.push('reconcile');
+				});
 
 			// Mock other sync methods
 			const syncMsftSpy = jest.spyOn(synchronizer as any, 'syncMsftToObsidian')
-				.mockResolvedValue(undefined);
+				.mockImplementation(async () => {
+					callOrder.push('syncMsft');
+					return { added: 0, errors: [] };
+				});
 			const syncObsidianSpy = jest.spyOn(synchronizer as any, 'syncObsidianToMsft')
-				.mockResolvedValue(undefined);
+				.mockImplementation(async () => {
+					callOrder.push('syncObsidian');
+					return { added: 0, errors: [] };
+				});
 			const syncCompletionsSpy = jest.spyOn(synchronizer as any, 'syncCompletions')
-				.mockResolvedValue(undefined);
+				.mockImplementation(async () => {
+					callOrder.push('syncCompletions');
+					return { completed: 0, errors: [] };
+				});
 
 			mockDailyNoteManager.ensureTodayNoteExists.mockResolvedValue('Daily Notes/2025-06-26.md');
 
@@ -295,9 +308,11 @@ describe('TodoSynchronizer - 内部同期', () => {
 			await synchronizer.performFullSync();
 
 			// Verify: Internal sync should be called first
-			expect(reconcileSpy).toHaveBeenCalledBefore(syncMsftSpy as any);
-			expect(reconcileSpy).toHaveBeenCalledBefore(syncObsidianSpy as any);
-			expect(reconcileSpy).toHaveBeenCalledBefore(syncCompletionsSpy as any);
+			expect(callOrder).toEqual(['reconcile', 'syncMsft', 'syncObsidian', 'syncCompletions']);
+			expect(reconcileSpy).toHaveBeenCalledTimes(1);
+			expect(syncMsftSpy).toHaveBeenCalledTimes(1);
+			expect(syncObsidianSpy).toHaveBeenCalledTimes(1);
+			expect(syncCompletionsSpy).toHaveBeenCalledTimes(1);
 		});
 	});
 });

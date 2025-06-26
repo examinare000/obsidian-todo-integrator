@@ -58,8 +58,8 @@ describe('Metadata-based Synchronization Integration', () => {
 			mockApiClient,
 			mockDailyNoteManager,
 			mockLogger,
-			'## ToDo',
-			mockPlugin
+			mockPlugin,
+			'## ToDo'
 		);
 	});
 

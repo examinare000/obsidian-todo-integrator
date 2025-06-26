@@ -53,8 +53,8 @@ describe('TodoSynchronizer - Basic Functionality', () => {
 			mockApiClient,
 			mockDailyNoteManager,
 			mockLogger,
-			undefined,
-			mockPlugin
+			mockPlugin,
+			undefined
 		);
 		
 		// Mock the metadata store methods
