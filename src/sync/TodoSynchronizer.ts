@@ -136,25 +136,31 @@ export class TodoSynchronizer {
 					// Microsoft Todoタスクから日付を抽出 - 期日を優先、なければ作成日を使用
 					let taskDate: string;
 					if (task.dueDateTime) {
-						// dueDateTimeから日付部分を抽出
-						// Microsoft TodoはUTCタイムスタンプを使用し、終日タスクは
-						// 通常UTC 15:00（日本時間で翌日0:00）として保存される
-						const dueDateTimeStr = task.dueDateTime.dateTime;
-						const timeZone = task.dueDateTime.timeZone;
+						let dueDateTimeStr = task.dueDateTime.dateTime;
 						
-						// UTC時間をDateオブジェクトに変換し、ローカルタイムゾーンで日付を取得
+						// Microsoft To DoのAPI応答にはZサフィックスがない場合があるため、
+						// UTC時間として確実に解析するために追加する
+						if (!dueDateTimeStr.endsWith('Z')) {
+							dueDateTimeStr += 'Z';
+						}
+						
 						const dueDate = new Date(dueDateTimeStr);
-						// toLocaleDateString('en-CA')はYYYY-MM-DD形式を返す
-						taskDate = dueDate.toLocaleDateString('en-CA');
+						
+						// JavaScriptのDateオブジェクトは自動的にローカルタイムゾーンに変換される
+						const year = dueDate.getFullYear();
+						const month = String(dueDate.getMonth() + 1).padStart(2, '0');
+						const day = String(dueDate.getDate()).padStart(2, '0');
+						taskDate = `${year}-${month}-${day}`;
 						
 						this.logger.info('[DEBUG] Due date processing', {
 							taskId: task.id,
 							title: task.title,
-							dueDateTimeStr,
+							originalDueDateTimeStr: task.dueDateTime.dateTime,
+							processedDueDateTimeStr: dueDateTimeStr,
 							utcDate: dueDateTimeStr.split('T')[0],
 							localDate: taskDate,
-							timeZone: timeZone,
-							fullDueDateTime: task.dueDateTime
+							localDateTime: dueDate.toString(),
+							timezoneOffset: dueDate.getTimezoneOffset()
 						});
 					} else {
 						taskDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
@@ -505,9 +511,27 @@ export class TodoSynchronizer {
 			const cleanedTitle = this.cleanTaskTitle(msftTask.title);
 			// Use due date if available, otherwise use creation date
 			// For due dates, convert UTC to local timezone to get correct date
-			const msftTaskDate = msftTask.dueDateTime 
-				? new Date(msftTask.dueDateTime.dateTime).toLocaleDateString('en-CA')
-				: new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
+			let msftTaskDate: string;
+			if (msftTask.dueDateTime) {
+				let dueDateTimeStr = msftTask.dueDateTime.dateTime;
+				
+				// Microsoft To DoのAPI応答にはZサフィックスがない場合があるため、
+				// UTC時間として確実に解析するために追加する
+				if (!dueDateTimeStr.endsWith('Z')) {
+					dueDateTimeStr += 'Z';
+				}
+				
+				const dueDate = new Date(dueDateTimeStr);
+				
+				// JavaScriptのDateオブジェクトは自動的にローカルタイムゾーンに変換される
+				// そのため、getFullYear/getMonth/getDateを使用すれば正しいローカル日付が取得できる
+				const year = dueDate.getFullYear();
+				const month = String(dueDate.getMonth() + 1).padStart(2, '0');
+				const day = String(dueDate.getDate()).padStart(2, '0');
+				msftTaskDate = `${year}-${month}-${day}`;
+			} else {
+				msftTaskDate = new Date(msftTask.createdDateTime).toISOString().slice(0, 10);
+			}
 			
 			// Check if we have metadata for this task
 			const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
