@@ -61,6 +61,10 @@ describe('TodoSynchronizer - 内部同期', () => {
 
 		// Access the private metadata store for testing
 		mockMetadataStore = (synchronizer as any).metadataStore;
+		
+		// Spy on metadata store methods
+		jest.spyOn(mockMetadataStore, 'removeMetadataByMsftId');
+		jest.spyOn(mockMetadataStore, 'updateMetadataByMsftId');
 	});
 
 	describe('reconcileMetadataWithDailyNotes', () => {
@@ -313,6 +317,40 @@ describe('TodoSynchronizer - 内部同期', () => {
 			expect(syncMsftSpy).toHaveBeenCalledTimes(1);
 			expect(syncObsidianSpy).toHaveBeenCalledTimes(1);
 			expect(syncCompletionsSpy).toHaveBeenCalledTimes(1);
+		});
+
+		it('should remove metadata for dates without daily note files', async () => {
+			// Setup: Add metadata for multiple dates
+			await mockMetadataStore.setMetadata('2025-06-26', 'Existing task', 'msft-task-1');
+			await mockMetadataStore.setMetadata('2025-06-27', 'Future task 1', 'msft-task-2');
+			await mockMetadataStore.setMetadata('2025-06-30', 'Future task 2', 'msft-task-3');
+
+			// Mock only 2025-06-26 file exists
+			mockDailyNoteManager.getDailyNoteFiles.mockResolvedValue([{
+				path: 'Daily Notes/2025-06-26.md',
+				basename: '2025-06-26'
+			} as any]);
+			
+			// Mock tasks for existing file
+			mockDailyNoteManager.getDailyNoteTasks.mockResolvedValue([{
+				title: 'Existing task',
+				completed: false,
+				lineNumber: 5,
+				startDate: '2025-06-26',
+				filePath: 'Daily Notes/2025-06-26.md'
+			}]);
+
+			// 内部同期を実行
+			await (synchronizer as any).reconcileMetadataWithDailyNotes();
+
+			// Verify: Metadata for dates without files should be removed
+			expect(mockMetadataStore.getMsftTaskId('2025-06-26', 'Existing task')).toBe('msft-task-1');
+			expect(mockMetadataStore.getMsftTaskId('2025-06-27', 'Future task 1')).toBeUndefined();
+			expect(mockMetadataStore.getMsftTaskId('2025-06-30', 'Future task 2')).toBeUndefined();
+			
+			// Verify removeMetadataByMsftId was called for non-existing files
+			expect(mockMetadataStore.removeMetadataByMsftId).toHaveBeenCalledWith('msft-task-2');
+			expect(mockMetadataStore.removeMetadataByMsftId).toHaveBeenCalledWith('msft-task-3');
 		});
 	});
 });
