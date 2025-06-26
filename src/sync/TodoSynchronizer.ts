@@ -61,6 +61,10 @@ export class TodoSynchronizer {
 				obsidianToMsft,
 				completions,
 				timestamp: startTime,
+				// 後方互換性のための集計フィールド
+				added: msftToObsidian.added + obsidianToMsft.added,
+				completed: completions.completed,
+				errors: [...msftToObsidian.errors, ...obsidianToMsft.errors, ...completions.errors],
 			};
 
 			// Clean up old metadata (older than 90 days)
@@ -600,8 +604,19 @@ export class TodoSynchronizer {
 
 	private cleanTaskTitle(title: string): string {
 		// Remove [todo::ID] pattern from the title
-		const cleaned = title.replace(/\[todo::[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-		this.logger.info('[DEBUG] Cleaning task title', { original: title, cleaned });
+		// First remove [todo::...] patterns, then normalize whitespace
+		let cleaned = title;
+		
+		// Remove all [todo::...] patterns
+		cleaned = cleaned.replace(/\[todo::[^\]]*\]/g, '');
+		
+		// Normalize whitespace - replace multiple spaces with single space
+		cleaned = cleaned.replace(/\s+/g, ' ');
+		
+		// Trim leading and trailing whitespace
+		cleaned = cleaned.trim();
+		
+		this.logger.debug('Cleaning task title', { original: title, cleaned });
 		return cleaned;
 	}
 }
