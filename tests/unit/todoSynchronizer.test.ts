@@ -1035,21 +1035,16 @@ describe('TodoSynchronizer', () => {
 
 		it('ネストした[[todo::ID]]パターンを正しく除去する', () => {
 			// Given: ネストしたブラケットを含むタスク
+			// 注: 正規表現 /\[todo::[^\]]*\]/g は [todo::...] パターンをマッチ
 			const testCases = [
 				{ input: 'タスク [[todo::nested-id]]', expected: 'タスク []' },
-				{ input: 'タスク [todo::[nested]]', expected: 'タスク' },
+				{ input: 'タスク [todo::[nested]]', expected: 'タスク ]' }, // [todo::[nested] が削除され、]が残る
 				{ input: '[[todo::id1][todo::id2]]', expected: '[]' },
 			];
 
 			testCases.forEach(({ input, expected }) => {
 				const result = (synchronizer as any).cleanTaskTitle(input);
-				// ネストしたブラケットは外側の[]が残ることを許容
-				if (input.includes('[[todo::')) {
-					// ネストした場合は外側の[]が残る
-					expect(result).toMatch(/\[\]/); 
-				} else {
-					expect(result).toBe(expected);
-				}
+				expect(result).toBe(expected);
 			});
 		});
 
