@@ -19,6 +19,14 @@ export interface TodoIntegratorSettings {
 	_userSetDailyNoteTemplate?: boolean;
 }
 
+// DataView plugin settings interface (partial)
+export interface DataViewSettings {
+	taskCompletionTracking?: boolean;
+	taskCompletionUseEmojiShorthand?: boolean;
+	taskCompletionText?: string;
+	taskCompletionDateFormat?: string;
+}
+
 export interface AuthenticationResult {
 	accessToken: string;
 	expiresOn: Date;
