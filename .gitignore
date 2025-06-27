@@ -22,7 +22,7 @@ data.json
 .DS_Store
 
 # Development documentation (local only)
-docs
+# docs
 
 # Project-specific Claude instructions
 CLAUDE.md
