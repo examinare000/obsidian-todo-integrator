@@ -26,3 +26,4 @@ docs
 
 # Project-specific Claude instructions
 CLAUDE.md
+*.log
