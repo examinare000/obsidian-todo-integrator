@@ -169,7 +169,7 @@ describe('TodoApiClient', () => {
 			const tasks = await apiClient.getTasks('list-id');
 
 			expect(fetch).toHaveBeenCalledWith(
-				'https://graph.microsoft.com/v1.0/me/todo/lists/list-id/tasks',
+				'https://graph.microsoft.com/v1.0/me/todo/lists/list-id/tasks?$top=200&$orderby=lastModifiedDateTime desc',
 				expect.any(Object)
 			);
 
