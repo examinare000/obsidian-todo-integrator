@@ -42,6 +42,10 @@ export class TodoSynchronizer {
 		this.taskSectionHeading = taskSectionHeading;
 		this.logger.debug('Task section heading updated', { taskSectionHeading });
 	}
+	
+	async forceSaveMetadata(): Promise<void> {
+		await this.metadataStore.forceSaveMetadata();
+	}
 
 	async performFullSync(): Promise<SyncResult> {
 		const startTime = new Date().toISOString();

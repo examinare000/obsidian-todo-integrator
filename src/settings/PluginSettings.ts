@@ -46,7 +46,23 @@ export class PluginSettings {
 			const settingsToSave = settings || this.settings;
 			const validatedSettings = this.validateSettings(settingsToSave);
 			this.settings = validatedSettings;
-			await this.saveDataCallback(this.settings);
+			
+			// loadDataCallbackがあれば、既存のデータを取得してメタデータを保護
+			if (this.loadDataCallback) {
+				const existingData = await this.loadDataCallback() || {};
+				const metadataKey = 'todo-integrator-task-metadata';
+				
+				// メタデータが存在する場合は保持
+				const protectedData = { ...this.settings } as any;
+				if (existingData[metadataKey]) {
+					protectedData[metadataKey] = existingData[metadataKey];
+				}
+				
+				await this.saveDataCallback(protectedData);
+			} else {
+				await this.saveDataCallback(this.settings);
+			}
+			
 			this.logger.debug('Settings saved successfully');
 		} catch (error) {
 			const errorMessage = this.errorHandler.handleFileError(error);

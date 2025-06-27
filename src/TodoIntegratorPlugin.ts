@@ -203,7 +203,17 @@ export class TodoIntegratorPlugin extends Plugin {
 			if (this.pluginSettings) {
 				await this.pluginSettings.saveSettings(this.settings);
 			} else {
-				await this.saveData(this.settings);
+				// 既存のデータを取得して、メタデータを保護する
+				const existingData = await this.loadData() || {};
+				const metadataKey = 'todo-integrator-task-metadata';
+				
+				// メタデータが存在する場合は保持
+				const protectedData: any = { ...this.settings };
+				if (existingData[metadataKey]) {
+					protectedData[metadataKey] = existingData[metadataKey];
+				}
+				
+				await this.saveData(protectedData);
 			}
 			this.logger?.debug('Settings saved successfully');
 		} catch (error) {
@@ -433,6 +443,11 @@ export class TodoIntegratorPlugin extends Plugin {
 			// Update last sync time
 			this.settings.lastSyncTime = new Date().toISOString();
 			await this.saveSettings();
+			
+			// メタデータを強制的に再保存（設定保存による上書きを防ぐ）
+			if (this.synchronizer) {
+				await this.synchronizer.forceSaveMetadata();
+			}
 
 			this.logger.info('Manual sync completed', { result });
 
