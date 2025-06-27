@@ -44,12 +44,25 @@ export class TaskMetadataStore {
 	 */
 	async setMetadata(date: string, title: string, msftTaskId: string): Promise<void> {
 		const key = this.generateKey(date, title);
+		this.logger.debug('setMetadata: Storing metadata', { 
+			key, 
+			date, 
+			title, 
+			msftTaskId,
+			metadataSizeBefore: this.metadata.size
+		});
+		
 		this.metadata.set(key, {
 			msftTaskId,
 			date,
 			title,
 			lastSynced: Date.now()
 		});
+		
+		this.logger.debug('setMetadata: Metadata set in memory', { 
+			metadataSizeAfter: this.metadata.size 
+		});
+		
 		await this.saveMetadata();
 		this.logger.debug('Task metadata stored', { key, msftTaskId });
 	}
@@ -144,11 +157,20 @@ export class TaskMetadataStore {
 	 */
 	private async loadMetadata(): Promise<void> {
 		try {
+			this.logger.debug('loadMetadata: Starting to load metadata');
 			const data = await this.plugin.loadData();
+			this.logger.debug('loadMetadata: Data loaded from plugin', { 
+				hasData: !!data,
+				dataKeys: data ? Object.keys(data) : [],
+				hasStorageKey: data ? !!data[this.storageKey] : false
+			});
+			
 			if (data && data[this.storageKey]) {
 				const entries = data[this.storageKey] as Array<[string, TaskMetadata]>;
 				this.metadata = new Map(entries);
 				this.logger.debug('Loaded task metadata', { count: this.metadata.size });
+			} else {
+				this.logger.debug('No existing task metadata found, starting with empty metadata');
 			}
 		} catch (error) {
 			this.logger.error('Failed to load task metadata', error);
@@ -164,11 +186,27 @@ export class TaskMetadataStore {
 			this.logger.debug('saveMetadata called', {
 				hasPlugin: !!this.plugin,
 				hasLoadData: typeof this.plugin?.loadData === 'function',
-				pluginType: this.plugin?.constructor?.name
+				hasSaveData: typeof this.plugin?.saveData === 'function',
+				pluginType: this.plugin?.constructor?.name,
+				metadataSize: this.metadata.size
 			});
 			
 			const data = await this.plugin.loadData() || {};
-			data[this.storageKey] = Array.from(this.metadata.entries());
+			this.logger.debug('saveMetadata: Current plugin data before save', {
+				dataKeys: Object.keys(data),
+				hasExistingMetadata: !!data[this.storageKey]
+			});
+			
+			// Convert Map to array for storage
+			const metadataArray = Array.from(this.metadata.entries());
+			data[this.storageKey] = metadataArray;
+			
+			this.logger.debug('saveMetadata: Saving data', {
+				storageKey: this.storageKey,
+				metadataCount: metadataArray.length,
+				dataKeysAfter: Object.keys(data)
+			});
+			
 			await this.plugin.saveData(data);
 			this.logger.debug('Saved task metadata', { count: this.metadata.size });
 		} catch (error) {

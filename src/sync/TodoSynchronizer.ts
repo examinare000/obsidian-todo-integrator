@@ -353,11 +353,61 @@ export class TodoSynchronizer {
 				// メタデータを使用して対応するObsidianタスクを検索
 				const metadata = this.metadataStore.findByMsftTaskId(msftTask.id);
 				if (!metadata) {
-					this.logger.debug('No metadata found for Microsoft task', {
+					// メタデータが見つからない場合、タスク名で検索を試みる（フォールバック）
+					const cleanedMsftTitle = this.cleanTaskTitle(msftTask.title);
+					this.logger.debug('No metadata found for Microsoft task, attempting title-based search', {
 						taskId: msftTask.id,
 						title: msftTask.title,
+						cleanedTitle: cleanedMsftTitle,
 						status: msftTask.status
 					});
+					
+					// タイトルベースの検索を試みる
+					const dailyTaskByTitle = allDailyTasks.find(task => 
+						this.cleanTaskTitle(task.title) === cleanedMsftTitle
+					);
+					
+					if (dailyTaskByTitle && msftTask.status === 'completed' && !dailyTaskByTitle.completed) {
+						// タスクが見つかり、完了同期が必要な場合
+						this.logger.info('Found matching task by title, attempting completion sync', {
+							msftTaskId: msftTask.id,
+							title: cleanedMsftTitle,
+							filePath: dailyTaskByTitle.filePath
+						});
+						
+						try {
+							const completionDate = this.parseCompletionDate(msftTask);
+							await this.dailyNoteManager.updateTaskCompletion(
+								dailyTaskByTitle.filePath!,
+								dailyTaskByTitle.lineNumber,
+								true,
+								completionDate
+							);
+							
+							// メタデータを作成して今後の同期のために保存
+							if (dailyTaskByTitle.startDate) {
+								await this.metadataStore.setMetadata(
+									dailyTaskByTitle.startDate,
+									cleanedMsftTitle,
+									msftTask.id
+								);
+								this.logger.info('Created missing metadata for task', {
+									date: dailyTaskByTitle.startDate,
+									title: cleanedMsftTitle,
+									msftTaskId: msftTask.id
+								});
+							}
+							
+							completed++;
+						} catch (error) {
+							const errorMsg = `Failed to complete task by title "${cleanedMsftTitle}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+							errors.push(errorMsg);
+							this.logger.error('Failed to complete task by title', {
+								title: cleanedMsftTitle,
+								error
+							});
+						}
+					}
 					continue;
 				}
 				
