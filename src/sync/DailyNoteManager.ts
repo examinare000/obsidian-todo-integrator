@@ -504,8 +504,9 @@ export class DailyNoteManager {
 			} else {
 				// Mark as incomplete
 				updatedLine = updatedLine.replace(/^(\s*)- \[x\]/, '$1- [ ]');
-				// Remove completion date
+				// Remove completion date (both emoji and DataView formats)
 				updatedLine = updatedLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+				updatedLine = updatedLine.replace(/\s*\[completion::\s*\d{4}-\d{2}-\d{2}\]/, '');
 			}
 
 			lines[lineNumber] = updatedLine;
