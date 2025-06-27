@@ -33,6 +33,7 @@ export class DailyNoteManager {
 		this.dailyNotesPath = dailyNotesPath;
 		this.dateFormat = dateFormat;
 		this.templatePath = templatePath;
+		this.dataViewCompat = new DataViewCompat(app, logger);
 	}
 
 	getTodayNotePath(): string {
