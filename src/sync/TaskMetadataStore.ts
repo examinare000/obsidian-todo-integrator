@@ -93,11 +93,24 @@ export class TaskMetadataStore {
 	 * Find task by Microsoft Todo ID
 	 */
 	findByMsftTaskId(msftTaskId: string): TaskMetadata | undefined {
+		this.logger.debug('findByMsftTaskId called', {
+			msftTaskId,
+			metadataSize: this.metadata.size,
+			metadataKeys: Array.from(this.metadata.keys())
+		});
+		
 		for (const metadata of this.metadata.values()) {
 			if (metadata.msftTaskId === msftTaskId) {
+				this.logger.debug('Metadata found for Microsoft task', {
+					msftTaskId,
+					date: metadata.date,
+					title: metadata.title
+				});
 				return metadata;
 			}
 		}
+		
+		this.logger.debug('No metadata found for Microsoft task ID', { msftTaskId });
 		return undefined;
 	}
 
