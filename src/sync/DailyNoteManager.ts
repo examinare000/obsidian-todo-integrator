@@ -10,6 +10,7 @@ import {
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
+import { DataViewCompat } from '../utils/DataViewCompat';
 // Note: Using native Date formatting to avoid moment dependency issues in tests
 
 export class DailyNoteManager {
