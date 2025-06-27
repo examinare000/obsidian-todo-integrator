@@ -57,62 +57,6 @@ npm version major
 
 For detailed architecture information, see [design.md](./design.md).
 
-## Version History
-
-### v0.3.5 - DataView Compatibility & Completion Sync Fix
-- Fixed Microsoft To Do completion sync issue (object format handling)
-- Added DataView plugin detection and compatibility
-- Respects DataView's "Use emoji shorthand for completion" setting
-- Supports both emoji and inline field completion formats
-
-### v0.3.4 - Internal Sync & Timezone Support
-- Internal sync between daily notes and metadata store
-- Automatic cleanup of non-existent daily note metadata
-- UTC date conversion bug fix (Z suffix addition)
-- Universal timezone support
-
-### v0.3.1-dev - Title Cleaning & Test Enhancement
-- Reliable removal of [todo::ID] patterns from past bugs
-- Improved cleanTaskTitle() method with step-by-step processing
-- Enhanced title matching during completion sync
-- Comprehensive edge case tests
-- Added backward compatibility fields to SyncResult
-
-### v0.3.0 - Stable Release
-- Version display on plugin load
-- Enhanced debug logging
-- Improved task sync logging
-
-### v0.2.10 - Bug Fixes & Performance
-- Various bug fixes and performance improvements
-
-### v0.2.9 - Enhanced Debugging
-- Detailed task addition logging
-- Improved sync traceability
-
-### v0.2.8 - Stability Improvements
-- General stability enhancements
-
-### v0.2.6 - Task Placement Logic
-- Prioritizes due date over creation date for task placement
-- Better daily note task organization
-
-### v0.2.5 - TaskMetadataStore Implementation
-- Metadata-based task management system
-- Comprehensive title cleaning
-- Log level initialization fix
-- Plugin instance as required parameter
-
-### Earlier Versions
-- v0.2.4: Timezone preparation, enhanced task ID removal
-- v0.2.3: Section placement fixes
-- v0.2.2: Duplicate prevention, title cleaning, template sync
-- v0.2.1: Security patches, settings UI improvements
-- v0.2.0: Security enhancements (InputSanitizer, SecureErrorHandler)
-- v0.1.14: Path validation
-- v0.1.13: Advanced Configuration
-- v0.1.12: Browser-based authentication
-- v0.1.11: Daily Notes settings inheritance
 
 ## Testing
 
