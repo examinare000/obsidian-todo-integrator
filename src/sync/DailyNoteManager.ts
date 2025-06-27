@@ -19,6 +19,7 @@ export class DailyNoteManager {
 	private dailyNotesPath: string;
 	private dateFormat: string;
 	private templatePath?: string;
+	private dataViewCompat: DataViewCompat;
 
 	constructor(
 		app: App, 
