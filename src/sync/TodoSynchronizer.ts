@@ -42,6 +42,10 @@ export class TodoSynchronizer {
 		this.taskSectionHeading = taskSectionHeading;
 		this.logger.debug('Task section heading updated', { taskSectionHeading });
 	}
+	
+	async forceSaveMetadata(): Promise<void> {
+		await this.metadataStore.forceSaveMetadata();
+	}
 
 	async performFullSync(): Promise<SyncResult> {
 		const startTime = new Date().toISOString();
@@ -342,6 +346,18 @@ export class TodoSynchronizer {
 				this.apiClient.getTasks(),
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
+			
+			// デバッグ用：Microsoft To Doから取得したタスクの詳細
+			this.logger.debug('Microsoft To Do tasks for completion sync', {
+				taskCount: msftTasks.length,
+				completedCount: msftTasks.filter(t => t.status === 'completed').length,
+				tasks: msftTasks.map(t => ({
+					id: t.id,
+					title: t.title,
+					status: t.status,
+					completedDateTime: t.completedDateTime
+				}))
+			});
 
 			// 検索用マップを作成
 			const msftTasksById = new Map(msftTasks.map(task => [task.id, task]));
@@ -422,6 +438,19 @@ export class TodoSynchronizer {
 				//    → 却下理由: ユーザーがファイルを編集すると行番号が変わり、メタデータが古くなる
 				// 3. あいまい一致や正規表現パターンを使用
 				//    → 却下理由: 間違ったタスクにマッチしてデータ破損を引き起こす可能性がある
+				// デバッグ用：検索条件をログ出力
+				this.logger.debug('Searching for daily task', {
+					searchDate: metadata.date,
+					searchTitle: metadata.title,
+					availableTasksOnDate: allDailyTasks
+						.filter(t => t.startDate === metadata.date)
+						.map(t => ({ 
+							title: t.title, 
+							cleanedTitle: this.cleanTaskTitle(t.title),
+							completed: t.completed 
+						}))
+				});
+				
 				const dailyTask = allDailyTasks.find(task => 
 					task.startDate === metadata.date && 
 					this.cleanTaskTitle(task.title) === metadata.title
@@ -439,10 +468,40 @@ export class TodoSynchronizer {
 
 				const msftCompleted = msftTask.status === 'completed';
 				
-				if (!msftCompleted || dailyTask.completed) continue;
+				this.logger.debug('Processing Microsoft task completion sync', {
+					taskId: msftTask.id,
+					title: msftTask.title,
+					msftCompleted,
+					obsidianCompleted: dailyTask.completed,
+					willSync: msftCompleted && !dailyTask.completed
+				});
+				
+				if (!msftCompleted || dailyTask.completed) {
+					this.logger.debug('Skipping task completion sync', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						msftCompleted,
+						dailyTaskCompleted: dailyTask.completed,
+						reason: !msftCompleted ? 'Microsoft task not completed' : 'Obsidian task already completed'
+					});
+					continue;
+				}
 				
 				try {
+					this.logger.debug('Starting task completion update', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						filePath: dailyTask.filePath,
+						lineNumber: dailyTask.lineNumber
+					});
+					
 					const completionDate = this.parseCompletionDate(msftTask);
+					
+					this.logger.debug('Updating task completion', {
+						filePath: dailyTask.filePath,
+						lineNumber: dailyTask.lineNumber,
+						completionDate
+					});
 					
 					await this.dailyNoteManager.updateTaskCompletion(
 						dailyTask.filePath!,
@@ -459,6 +518,12 @@ export class TodoSynchronizer {
 				} catch (error) {
 					const errorMsg = `Failed to complete task "${msftTask.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
 					errors.push(errorMsg);
+					this.logger.error('Failed to update task completion', {
+						taskId: msftTask.id,
+						title: msftTask.title,
+						error,
+						errorMessage: error instanceof Error ? error.message : 'Unknown error'
+					});
 				}
 			}
 
@@ -646,7 +711,28 @@ export class TodoSynchronizer {
 
 	private parseCompletionDate(task: TodoTask): string {
 		// No completedDateTime provided, use current date
-		if (!task.completedDateTime || task.completedDateTime.trim() === '') {
+		if (!task.completedDateTime) {
+			return new Date().toISOString().slice(0, 10);
+		}
+
+		// Handle both string and object formats from Microsoft Graph API
+		let dateTimeString: string;
+		if (typeof task.completedDateTime === 'object' && 'dateTime' in task.completedDateTime) {
+			// Handle object format: { dateTime: string, timeZone: string }
+			dateTimeString = (task.completedDateTime as any).dateTime;
+		} else if (typeof task.completedDateTime === 'string') {
+			dateTimeString = task.completedDateTime;
+		} else {
+			this.logger.warn('Unexpected completedDateTime format, using current date', {
+				taskId: task.id,
+				completedDateTime: task.completedDateTime,
+				type: typeof task.completedDateTime
+			});
+			return new Date().toISOString().slice(0, 10);
+		}
+
+		// Check for empty string
+		if (dateTimeString.trim() === '') {
 			return new Date().toISOString().slice(0, 10);
 		}
 
@@ -654,17 +740,19 @@ export class TodoSynchronizer {
 			taskId: task.id,
 			title: task.title,
 			completedDateTime: task.completedDateTime,
+			dateTimeString,
 			type: typeof task.completedDateTime
 		});
 
 		try {
-			const parsedDate = new Date(task.completedDateTime);
+			const parsedDate = new Date(dateTimeString);
 			
 			// Check if the date is valid
 			if (isNaN(parsedDate.getTime())) {
 				this.logger.warn('Invalid completedDateTime format, using current date', {
 					taskId: task.id,
-					completedDateTime: task.completedDateTime
+					completedDateTime: task.completedDateTime,
+					dateTimeString
 				});
 				return new Date().toISOString().slice(0, 10);
 			}
@@ -675,6 +763,7 @@ export class TodoSynchronizer {
 			this.logger.warn('Failed to parse completedDateTime, using current date', {
 				taskId: task.id,
 				completedDateTime: task.completedDateTime,
+				dateTimeString,
 				error: dateError
 			});
 			return new Date().toISOString().slice(0, 10);

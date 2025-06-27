@@ -93,11 +93,24 @@ export class TaskMetadataStore {
 	 * Find task by Microsoft Todo ID
 	 */
 	findByMsftTaskId(msftTaskId: string): TaskMetadata | undefined {
+		this.logger.debug('findByMsftTaskId called', {
+			msftTaskId,
+			metadataSize: this.metadata.size,
+			metadataKeys: Array.from(this.metadata.keys())
+		});
+		
 		for (const metadata of this.metadata.values()) {
 			if (metadata.msftTaskId === msftTaskId) {
+				this.logger.debug('Metadata found for Microsoft task', {
+					msftTaskId,
+					date: metadata.date,
+					title: metadata.title
+				});
 				return metadata;
 			}
 		}
+		
+		this.logger.debug('No metadata found for Microsoft task ID', { msftTaskId });
 		return undefined;
 	}
 
@@ -209,6 +222,13 @@ export class TaskMetadataStore {
 			
 			await this.plugin.saveData(data);
 			this.logger.debug('Saved task metadata', { count: this.metadata.size });
+			
+			// 保存後にデータが実際に保存されたか確認
+			const verifyData = await this.plugin.loadData();
+			this.logger.debug('saveMetadata: Verify after save', {
+				hasStorageKey: !!verifyData[this.storageKey],
+				savedMetadataCount: verifyData[this.storageKey] ? verifyData[this.storageKey].length : 0
+			});
 		} catch (error) {
 			this.logger.error('Failed to save task metadata', error);
 		}
@@ -287,6 +307,17 @@ export class TaskMetadataStore {
 	hasMetadataForTask(date: string, title: string): boolean {
 		const key = this.generateKey(date, title);
 		return this.metadata.has(key);
+	}
+	
+	/**
+	 * メタデータを強制的に再保存する
+	 * 設定の保存によってメタデータが失われた場合の対処
+	 */
+	async forceSaveMetadata(): Promise<void> {
+		if (this.metadata.size > 0) {
+			await this.saveMetadata();
+			this.logger.debug('Force saved task metadata', { count: this.metadata.size });
+		}
 	}
 
 	/**
