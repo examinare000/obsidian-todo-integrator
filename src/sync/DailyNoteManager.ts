@@ -495,8 +495,11 @@ export class DailyNoteManager {
 				if (completionDate) {
 					// Remove existing completion date if present
 					updatedLine = updatedLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
-					// Add new completion date
-					updatedLine += ` ✅ ${completionDate}`;
+					// Remove DataView inline field format if present
+					updatedLine = updatedLine.replace(/\s*\[completion::\s*\d{4}-\d{2}-\d{2}\]/, '');
+					// Add new completion date using DataView-compatible format
+					const completionFormat = this.dataViewCompat.getCompletionFormat(completionDate);
+					updatedLine += completionFormat;
 				}
 			} else {
 				// Mark as incomplete
