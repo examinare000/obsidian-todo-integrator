@@ -10,6 +10,7 @@ import {
 	COMPLETION_DATE_REGEX,
 	ERROR_CODES 
 } from '../constants';
+import { DataViewCompat } from '../utils/DataViewCompat';
 // Note: Using native Date formatting to avoid moment dependency issues in tests
 
 export class DailyNoteManager {
@@ -18,6 +19,7 @@ export class DailyNoteManager {
 	private dailyNotesPath: string;
 	private dateFormat: string;
 	private templatePath?: string;
+	private dataViewCompat: DataViewCompat;
 
 	constructor(
 		app: App, 
@@ -31,6 +33,7 @@ export class DailyNoteManager {
 		this.dailyNotesPath = dailyNotesPath;
 		this.dateFormat = dateFormat;
 		this.templatePath = templatePath;
+		this.dataViewCompat = new DataViewCompat(app, logger);
 	}
 
 	getTodayNotePath(): string {
@@ -492,14 +495,18 @@ export class DailyNoteManager {
 				if (completionDate) {
 					// Remove existing completion date if present
 					updatedLine = updatedLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
-					// Add new completion date
-					updatedLine += ` ✅ ${completionDate}`;
+					// Remove DataView inline field format if present
+					updatedLine = updatedLine.replace(/\s*\[completion::\s*\d{4}-\d{2}-\d{2}\]/, '');
+					// Add new completion date using DataView-compatible format
+					const completionFormat = this.dataViewCompat.getCompletionFormat(completionDate);
+					updatedLine += completionFormat;
 				}
 			} else {
 				// Mark as incomplete
 				updatedLine = updatedLine.replace(/^(\s*)- \[x\]/, '$1- [ ]');
-				// Remove completion date
+				// Remove completion date (both emoji and DataView formats)
 				updatedLine = updatedLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+				updatedLine = updatedLine.replace(/\s*\[completion::\s*\d{4}-\d{2}-\d{2}\]/, '');
 			}
 
 			lines[lineNumber] = updatedLine;
