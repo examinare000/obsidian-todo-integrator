@@ -160,7 +160,10 @@ export class TodoApiClient {
 
 		try {
 			const accessToken = await this.getAccessToken();
-			const response = await fetch(GRAPH_ENDPOINTS.TASKS(targetListId), {
+			// 完了したタスクも含めて取得するため、$topパラメータで多めのタスクを取得
+			// $filterパラメータは使用せず、全ステータスのタスクを取得する
+			const url = `${GRAPH_ENDPOINTS.TASKS(targetListId)}?$top=100`;
+			const response = await fetch(url, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${accessToken}`,
@@ -176,6 +179,18 @@ export class TodoApiClient {
 			const tasks = data.value || [];
 
 			this.logger.debug(`Retrieved ${tasks.length} tasks from list`, { listId: targetListId });
+			
+			// デバッグ用：取得したタスクの詳細をログ出力
+			tasks.forEach(task => {
+				this.logger.debug('Task details', {
+					id: task.id,
+					title: task.title,
+					status: task.status,
+					isCompleted: task.status === 'completed',
+					completedDateTime: task.completedDateTime
+				});
+			});
+			
 			return tasks;
 
 		} catch (error) {
