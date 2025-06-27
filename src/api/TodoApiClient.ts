@@ -161,8 +161,9 @@ export class TodoApiClient {
 		try {
 			const accessToken = await this.getAccessToken();
 			// 完了したタスクも含めて取得するため、$topパラメータで多めのタスクを取得
-			// $filterパラメータは使用せず、全ステータスのタスクを取得する
-			const url = `${GRAPH_ENDPOINTS.TASKS(targetListId)}?$top=100`;
+			// 完了したタスクを含むすべてのタスクを取得するため、$filterは使用しない
+			// 完了したタスクも取得するために、$expandパラメータを使用
+			const url = `${GRAPH_ENDPOINTS.TASKS(targetListId)}?$top=200&$orderby=lastModifiedDateTime desc`;
 			const response = await fetch(url, {
 				method: 'GET',
 				headers: {
@@ -179,6 +180,18 @@ export class TodoApiClient {
 			const tasks = data.value || [];
 
 			this.logger.debug(`Retrieved ${tasks.length} tasks from list`, { listId: targetListId });
+			
+			// APIレスポンス全体をログ出力（デバッグ用）
+			this.logger.debug('API Response', {
+				hasValue: !!data.value,
+				taskCount: data.value?.length || 0,
+				firstTaskSample: data.value?.[0] ? {
+					id: data.value[0].id,
+					title: data.value[0].title,
+					status: data.value[0].status,
+					hasCompletedDateTime: !!data.value[0].completedDateTime
+				} : null
+			});
 			
 			// デバッグ用：取得したタスクの詳細をログ出力
 			tasks.forEach(task => {
