@@ -105,17 +105,6 @@ export class TodoSynchronizer {
 				this.dailyNoteManager.getAllDailyNoteTasks(this.taskSectionHeading),
 			]);
 			
-			// Log Microsoft Todo tasks for debugging (temporarily using info level)
-			this.logger.info('[DEBUG] Microsoft Todo tasks retrieved', {
-				count: msftTasks.length,
-				tasks: msftTasks.map(t => ({ 
-					id: t.id, 
-					title: t.title,
-					status: t.status,
-					dueDateTime: t.dueDateTime,
-					createdDateTime: t.createdDateTime
-				}))
-			});
 			
 			// Clean up Microsoft Todo task titles if they contain [todo:: tags
 			await this.cleanMicrosoftTodoTitles(msftTasks)
@@ -123,16 +112,6 @@ export class TodoSynchronizer {
 			// Find new Microsoft tasks that don't exist in Obsidian (only incomplete tasks)
 			const newMsftTasks = this.findNewMsftTasks(msftTasks, allDailyTasks)
 				.filter(task => task.status !== 'completed');
-			
-			this.logger.info('[DEBUG] New Microsoft tasks to add to Obsidian', {
-				count: newMsftTasks.length,
-				tasks: newMsftTasks.map(t => ({ 
-					id: t.id, 
-					title: t.title,
-					dueDateTime: t.dueDateTime,
-					createdDateTime: t.createdDateTime
-				}))
-			});
 
 			// Add each new task to the appropriate daily note based on due date (fallback to creation date)
 			for (const task of newMsftTasks) {
@@ -155,17 +134,6 @@ export class TodoSynchronizer {
 						const month = String(dueDate.getMonth() + 1).padStart(2, '0');
 						const day = String(dueDate.getDate()).padStart(2, '0');
 						taskDate = `${year}-${month}-${day}`;
-						
-						this.logger.info('[DEBUG] Due date processing', {
-							taskId: task.id,
-							title: task.title,
-							originalDueDateTimeStr: task.dueDateTime.dateTime,
-							processedDueDateTimeStr: dueDateTimeStr,
-							utcDate: dueDateTimeStr.split('T')[0],
-							localDate: taskDate,
-							localDateTime: dueDate.toString(),
-							timezoneOffset: dueDate.getTimezoneOffset()
-						});
 					} else {
 						taskDate = new Date(task.createdDateTime).toISOString().slice(0, 10);
 					}
@@ -177,13 +145,6 @@ export class TodoSynchronizer {
 					const cleanedTitle = this.cleanTaskTitle(task.title);
 					
 					// 未完了タスクとして追加
-					this.logger.info('[DEBUG] Adding task to Obsidian', {
-						targetNotePath,
-						cleanedTitle,
-						originalTitle: task.title,
-						taskId: task.id,
-						taskDate
-					});
 					
 					await this.dailyNoteManager.addTaskToTodoSection(
 						targetNotePath,
@@ -195,15 +156,6 @@ export class TodoSynchronizer {
 					await this.metadataStore.setMetadata(taskDate, cleanedTitle, task.id);
 					
 					added++;
-					this.logger.info('[DEBUG] Added Microsoft task to Obsidian', { 
-						taskId: task.id, 
-						originalTitle: task.title,
-						cleanedTitle: cleanedTitle,
-						targetNote: targetNotePath,
-						taskDate: taskDate,
-						dueDate: task.dueDateTime ? new Date(task.dueDateTime.dateTime).toISOString().slice(0, 10) : null,
-						createdDate: new Date(task.createdDateTime).toISOString().slice(0, 10)
-					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
 					errors.push(errorMsg);
@@ -253,16 +205,6 @@ export class TodoSynchronizer {
 				const existingMsftId = this.metadataStore.getMsftTaskId(task.startDate, cleanedTitle);
 				return !existingMsftId;
 			});
-			
-			this.logger.info('[DEBUG] New Obsidian tasks to add to Microsoft', {
-				count: newObsidianTasks.length,
-				tasks: newObsidianTasks.map(t => ({ 
-					title: t.title,
-					filePath: t.filePath,
-					startDate: t.startDate,
-					completed: t.completed
-				}))
-			});
 
 			// デフォルトリストIDを取得
 			const listId = this.apiClient.getDefaultListId();
@@ -309,12 +251,6 @@ export class TodoSynchronizer {
 					}
 					
 					added++;
-					this.logger.info('[DEBUG] Added Obsidian task to Microsoft', { 
-						taskTitle: task.title,
-						msftTaskId: createdTask.id,
-						startDate: task.startDate,
-						filePath: task.filePath
-					});
 				} catch (error) {
 					const errorMsg = `Failed to add task "${task.title}": ${error instanceof Error ? error.message : 'Unknown error'}`;
 					errors.push(errorMsg);

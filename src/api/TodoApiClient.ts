@@ -258,14 +258,6 @@ export class TodoApiClient {
 			}
 
 			const newTask: TodoTask = await response.json();
-			this.logger.info('[DEBUG] Task created successfully', {
-				taskId: newTask.id,
-				title: newTask.title,
-				originalTitle: title,
-				cleanTitle: cleanTitle,
-				startDate: startDate
-			});
-
 			return newTask;
 
 		} catch (error) {
